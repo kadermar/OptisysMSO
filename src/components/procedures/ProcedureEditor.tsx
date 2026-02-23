@@ -178,7 +178,7 @@ export default function ProcedureEditor({ procedureId, ciSignalId, initialRecomm
                   </div>
                   <div>
                     <h1 className="text-xl font-bold text-[#1c2b40]">
-                      Edit Mode: {procedure?.name}
+                      {procedure?.name}
                     </h1>
                     <p className="text-sm text-gray-500">
                       {procedureId} | Version {currentVersion} → {newVersion}

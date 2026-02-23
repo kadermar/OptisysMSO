@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Bell, User, ChevronDown, Edit, History } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Bell, User, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 interface Notification {
   id: number;
@@ -21,39 +21,9 @@ interface Notification {
 
 export function MSOTopNav() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [procedureName, setProcedureName] = useState<string>('');
-
-  // Check if we're on a procedure detail page
-  const isProcedurePage = pathname?.match(/^\/mso\/procedures\/([^\/]+)$/);
-  const procedureId = isProcedurePage ? isProcedurePage[1] : null;
-  const currentMode = (searchParams?.get('mode') as 'edit' | 'history' | 'add-steps') || 'edit';
-  const signalId = searchParams?.get('signal') || undefined;
-
-  // Fetch procedure name when on a procedure page
-  useEffect(() => {
-    if (procedureId) {
-      fetch(`/api/procedures/${procedureId}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.name) {
-            setProcedureName(data.name);
-          }
-        })
-        .catch(err => console.error('Error fetching procedure:', err));
-    }
-  }, [procedureId]);
-
-  const handleModeChange = (mode: 'edit' | 'history' | 'add-steps') => {
-    if (!procedureId) return;
-    const params = new URLSearchParams(searchParams?.toString() || '');
-    params.set('mode', mode);
-    router.push(`/mso/procedures/${procedureId}?${params.toString()}`);
-  };
 
   const notifications: Notification[] = [
     {
@@ -100,7 +70,6 @@ export function MSOTopNav() {
 
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
-      {/* Main Navigation Row */}
       <div className="px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex items-center justify-between gap-4">
           {/* Search Bar */}
@@ -273,61 +242,6 @@ export function MSOTopNav() {
           </div>
         </div>
       </div>
-
-      {/* Procedure Actions Row - Only shown when viewing a procedure */}
-      {isProcedurePage && (
-        <div className="bg-blue-50 border-t border-blue-200 px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-blue-800">
-                <span className="font-semibold">{procedureName || procedureId}</span>
-                {signalId && (
-                  <span className="ml-2">• Addressing CI Signal {signalId}</span>
-                )}
-              </p>
-
-              {/* Mode Tabs */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleModeChange('edit')}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                    currentMode === 'edit'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-blue-700 hover:bg-blue-100'
-                  }`}
-                >
-                  <Edit className="w-4 h-4 inline mr-1" />
-                  Edit Steps
-                </button>
-                <button
-                  onClick={() => handleModeChange('add-steps')}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                    currentMode === 'add-steps'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-blue-700 hover:bg-blue-100'
-                  }`}
-                >
-                  Add/Manage Steps
-                </button>
-                <button
-                  onClick={() => handleModeChange('history')}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                    currentMode === 'history'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-blue-700 hover:bg-blue-100'
-                  }`}
-                >
-                  <History className="w-4 h-4 inline mr-1" />
-                  Version History
-                </button>
-              </div>
-            </div>
-            <div className="text-xs text-blue-700">
-              Changes will create a new procedure version with full audit trail
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

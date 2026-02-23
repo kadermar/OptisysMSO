@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import {
@@ -182,11 +182,7 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
       </Sidebar>
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* MSO Top Nav - Only show in MSO mode */}
-        {isMSOMode && (
-          <Suspense fallback={<div className="bg-white border-b border-gray-200 h-[60px]" />}>
-            <MSOTopNav />
-          </Suspense>
-        )}
+        {isMSOMode && <MSOTopNav />}
 
         <main className={cn(
           "flex-1 overflow-auto transition-[padding] duration-300",
