@@ -14,6 +14,7 @@ import {
   Edit,
   Plus,
   Trash2,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface Version {
@@ -41,15 +42,30 @@ interface VersionStep {
   change_type: 'unchanged' | 'modified' | 'added' | 'removed';
 }
 
-export function ProcedureVersionHistory({ procedureId }: { procedureId: string }) {
+interface ProcedureVersionHistoryProps {
+  procedureId: string;
+  currentMode?: 'edit' | 'history' | 'add-steps';
+  onModeChange?: (mode: 'edit' | 'history' | 'add-steps') => void;
+}
+
+export function ProcedureVersionHistory({
+  procedureId,
+  currentMode = 'history',
+  onModeChange
+}: ProcedureVersionHistoryProps) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedVersion, setExpandedVersion] = useState<number | null>(null);
   const [versionSteps, setVersionSteps] = useState<Record<number, VersionStep[]>>({});
   const [loadingSteps, setLoadingSteps] = useState<Record<number, boolean>>({});
+  const [procedure, setProcedure] = useState<any>(null);
 
   useEffect(() => {
     fetchVersions();
+    fetch(`/api/procedures/${procedureId}`)
+      .then(res => res.json())
+      .then(data => setProcedure(data))
+      .catch(err => console.error('Error fetching procedure:', err));
   }, [procedureId]);
 
   const fetchVersions = async () => {
@@ -128,45 +144,108 @@ export function ProcedureVersionHistory({ procedureId }: { procedureId: string }
     }
   };
 
+  const handleClose = () => {
+    window.location.href = '/mso/governance';
+  };
+
+  const currentVersion = procedure?.version || procedure?.current_version || '1.0';
+
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <History className="w-5 h-5 text-[#ff0000]" />
-          <h2 className="text-xl font-bold text-[#1c2b40]">Version History</h2>
-        </div>
-        <div className="animate-pulse space-y-4">
-          <div className="h-20 bg-gray-200 rounded-lg"></div>
-          <div className="h-20 bg-gray-200 rounded-lg"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (versions.length === 0) {
-    return (
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <History className="w-5 h-5 text-[#ff0000]" />
-          <h2 className="text-xl font-bold text-[#1c2b40]">Version History</h2>
-        </div>
-        <div className="text-center py-8 text-gray-500">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-          <p>No version history available</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#ff0000]"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <History className="w-5 h-5 text-[#ff0000]" />
-        <h2 className="text-xl font-bold text-[#1c2b40]">Version History</h2>
-        <span className="ml-auto text-sm text-gray-600">{versions.length} versions</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header Bar */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-[1600px] mx-auto px-6 py-4">
+          <div className="flex items-center justify-between gap-6">
+            {/* Left: Back button + Procedure info */}
+            <div className="flex items-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleClose}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </motion.button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                  <History className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-[#1c2b40]">
+                    {procedure?.name || procedureId}
+                  </h1>
+                  <p className="text-sm text-gray-500">
+                    {procedureId} | Version {currentVersion}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Center: Mode tabs (only if onModeChange provided) */}
+            {onModeChange && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onModeChange('edit')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    currentMode === 'edit'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Edit className="w-4 h-4 inline mr-1" />
+                  Edit Steps
+                </button>
+                <button
+                  onClick={() => onModeChange('add-steps')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    currentMode === 'add-steps'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Add/Manage Steps
+                </button>
+                <button
+                  onClick={() => onModeChange('history')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    currentMode === 'history'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <History className="w-4 h-4 inline mr-1" />
+                  Version History
+                </button>
+              </div>
+            )}
+
+            {/* Right: Version count */}
+            <div className="text-sm text-gray-600">
+              {versions.length} {versions.length === 1 ? 'version' : 'versions'}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-3">
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-6 py-8">
+        {versions.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p className="text-gray-500">No version history available</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
         {versions.map((version, index) => (
           <motion.div
             key={version.version_id}
@@ -323,6 +402,8 @@ export function ProcedureVersionHistory({ procedureId }: { procedureId: string }
             </AnimatePresence>
           </motion.div>
         ))}
+          </div>
+        )}
       </div>
     </div>
   );

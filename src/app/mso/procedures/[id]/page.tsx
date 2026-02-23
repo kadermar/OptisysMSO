@@ -17,9 +17,7 @@ export default function MSOProcedurePage({ params, searchParams }: {
   const resolvedSearchParams = use(searchParams);
   const [procedure, setProcedure] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  // Read view mode from URL instead of state
-  const viewMode = (resolvedSearchParams.mode as 'edit' | 'history' | 'add-steps') || 'edit';
+  const [viewMode, setViewMode] = useState<'edit' | 'history' | 'add-steps'>('edit');
 
   useEffect(() => {
     fetchProcedure();
@@ -46,9 +44,7 @@ export default function MSOProcedurePage({ params, searchParams }: {
     // Refetch procedure after saving
     await fetchProcedure();
     // Switch to history to see the new version
-    const params = new URLSearchParams(resolvedSearchParams as any);
-    params.set('mode', 'history');
-    window.location.href = `/mso/procedures/${resolvedParams.id}?${params.toString()}`;
+    setViewMode('history');
   };
 
   if (loading) {
@@ -74,29 +70,34 @@ export default function MSOProcedurePage({ params, searchParams }: {
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* Content based on view mode */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {viewMode === 'edit' && (
-          <ProcedureEditor
-            procedureId={resolvedParams.id}
-            ciSignalId={resolvedSearchParams.signal}
-            initialRecommendation={resolvedSearchParams.recommendation}
-            onClose={handleClose}
-          />
-        )}
+      {viewMode === 'edit' && (
+        <ProcedureEditor
+          procedureId={resolvedParams.id}
+          ciSignalId={resolvedSearchParams.signal}
+          initialRecommendation={resolvedSearchParams.recommendation}
+          onClose={handleClose}
+          currentMode={viewMode}
+          onModeChange={setViewMode}
+        />
+      )}
 
-        {viewMode === 'add-steps' && procedure && (
-          <ProcedureStepEditor
-            procedureId={resolvedParams.id}
-            initialSteps={procedure.steps || []}
-            onSave={handleSaveSteps}
-          />
-        )}
+      {viewMode === 'add-steps' && procedure && (
+        <ProcedureStepEditor
+          procedureId={resolvedParams.id}
+          initialSteps={procedure.steps || []}
+          onSave={handleSaveSteps}
+          currentMode={viewMode}
+          onModeChange={setViewMode}
+        />
+      )}
 
-        {viewMode === 'history' && (
-          <ProcedureVersionHistory procedureId={resolvedParams.id} />
-        )}
-      </div>
+      {viewMode === 'history' && (
+        <ProcedureVersionHistory
+          procedureId={resolvedParams.id}
+          currentMode={viewMode}
+          onModeChange={setViewMode}
+        />
+      )}
     </div>
   );
 }

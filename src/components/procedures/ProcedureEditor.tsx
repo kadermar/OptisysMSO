@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Edit, Save, X, Sparkles, ArrowLeft } from 'lucide-react';
+import { Edit, Save, X, Sparkles, ArrowLeft, History } from 'lucide-react';
 import { useTourSafe } from '@/components/tour/TourProvider';
 import EditableStep from './EditableStep';
 
@@ -11,9 +11,18 @@ interface ProcedureEditorProps {
   ciSignalId?: string;
   initialRecommendation?: string;
   onClose: () => void;
+  currentMode: 'edit' | 'history' | 'add-steps';
+  onModeChange: (mode: 'edit' | 'history' | 'add-steps') => void;
 }
 
-export default function ProcedureEditor({ procedureId, ciSignalId, initialRecommendation, onClose }: ProcedureEditorProps) {
+export default function ProcedureEditor({
+  procedureId,
+  ciSignalId,
+  initialRecommendation,
+  onClose,
+  currentMode,
+  onModeChange
+}: ProcedureEditorProps) {
   const tour = useTourSafe();
   const [procedure, setProcedure] = useState<any>(null);
   const [steps, setSteps] = useState<any[]>([]);
@@ -161,7 +170,8 @@ export default function ProcedureEditor({ procedureId, ciSignalId, initialRecomm
       {/* Header Bar */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-6">
+            {/* Left: Back button + Procedure info */}
             <div className="flex items-center gap-4">
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -171,23 +181,58 @@ export default function ProcedureEditor({ procedureId, ciSignalId, initialRecomm
               >
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
               </motion.button>
-              <div>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
-                    <Edit className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-bold text-[#1c2b40]">
-                      {procedure?.name}
-                    </h1>
-                    <p className="text-sm text-gray-500">
-                      {procedureId} | Version {currentVersion} → {newVersion}
-                    </p>
-                  </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                  <Edit className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-[#1c2b40]">
+                    {procedure?.name}
+                  </h1>
+                  <p className="text-sm text-gray-500">
+                    {procedureId} | Version {currentVersion} → {newVersion}
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* Center: Mode tabs */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onModeChange('edit')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  currentMode === 'edit'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Edit className="w-4 h-4 inline mr-1" />
+                Edit Steps
+              </button>
+              <button
+                onClick={() => onModeChange('add-steps')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  currentMode === 'add-steps'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Add/Manage Steps
+              </button>
+              <button
+                onClick={() => onModeChange('history')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  currentMode === 'history'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <History className="w-4 h-4 inline mr-1" />
+                Version History
+              </button>
+            </div>
+
+            {/* Right: Badge + Publish button */}
             <div className="flex items-center gap-3">
               <span className="px-3 py-1.5 bg-amber-100 text-amber-700 text-sm font-bold rounded-lg">
                 Editing Mode
