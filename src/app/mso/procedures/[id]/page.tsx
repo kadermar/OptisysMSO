@@ -70,7 +70,7 @@ export default function MSOProcedurePage({ params, searchParams }: {
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
       {/* MSO Context Banner */}
-      <div className="bg-blue-50 border-b-2 border-blue-200 px-6 py-3 sticky top-0 z-30">
+      <div className="bg-blue-50 border-b-2 border-blue-200 px-6 py-3 sticky top-[60px] z-20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <p className="text-sm text-blue-800">
