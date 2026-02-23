@@ -17,7 +17,9 @@ export default function MSOProcedurePage({ params, searchParams }: {
   const resolvedSearchParams = use(searchParams);
   const [procedure, setProcedure] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'edit' | 'history' | 'add-steps'>('edit');
+
+  // Read view mode from URL instead of state
+  const viewMode = (resolvedSearchParams.mode as 'edit' | 'history' | 'add-steps') || 'edit';
 
   useEffect(() => {
     fetchProcedure();
@@ -43,7 +45,10 @@ export default function MSOProcedurePage({ params, searchParams }: {
   const handleSaveSteps = async () => {
     // Refetch procedure after saving
     await fetchProcedure();
-    setViewMode('history'); // Switch to history to see the new version
+    // Switch to history to see the new version
+    const params = new URLSearchParams(resolvedSearchParams as any);
+    params.set('mode', 'history');
+    window.location.href = `/mso/procedures/${resolvedParams.id}?${params.toString()}`;
   };
 
   if (loading) {
@@ -69,59 +74,6 @@ export default function MSOProcedurePage({ params, searchParams }: {
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* MSO Context Banner */}
-      <div className="bg-blue-50 border-b-2 border-blue-200 px-6 py-3 sticky top-[60px] z-20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <p className="text-sm text-blue-800">
-              <span className="font-semibold">MS Owner Mode</span>
-              {resolvedSearchParams.signal && (
-                <span className="ml-2">• Addressing CI Signal {resolvedSearchParams.signal}</span>
-              )}
-            </p>
-
-            {/* Mode Tabs */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setViewMode('edit')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === 'edit'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-blue-700 hover:bg-blue-100'
-                }`}
-              >
-                <Edit className="w-4 h-4 inline mr-1" />
-                Edit Steps
-              </button>
-              <button
-                onClick={() => setViewMode('add-steps')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === 'add-steps'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-blue-700 hover:bg-blue-100'
-                }`}
-              >
-                Add/Manage Steps
-              </button>
-              <button
-                onClick={() => setViewMode('history')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                  viewMode === 'history'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-blue-700 hover:bg-blue-100'
-                }`}
-              >
-                <History className="w-4 h-4 inline mr-1" />
-                Version History
-              </button>
-            </div>
-          </div>
-          <div className="text-xs text-blue-700">
-            Changes will create a new procedure version with full audit trail
-          </div>
-        </div>
-      </div>
-
       {/* Content based on view mode */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         {viewMode === 'edit' && (
