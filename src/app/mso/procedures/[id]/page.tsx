@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { use } from 'react';
 import { ArrowLeft, History, Edit } from 'lucide-react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ProcedureEditor from '@/components/procedures/ProcedureEditor';
 import { ProcedureVersionHistory } from '@/components/procedures/ProcedureVersionHistory';
 import { ProcedureStepEditor } from '@/components/procedures/ProcedureStepEditor';
@@ -70,34 +70,60 @@ export default function MSOProcedurePage({ params, searchParams }: {
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {viewMode === 'edit' && (
-        <ProcedureEditor
-          procedureId={resolvedParams.id}
-          ciSignalId={resolvedSearchParams.signal}
-          initialRecommendation={resolvedSearchParams.recommendation}
-          onClose={handleClose}
-          currentMode={viewMode}
-          onModeChange={setViewMode}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {viewMode === 'edit' && (
+          <motion.div
+            key="edit"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <ProcedureEditor
+              procedureId={resolvedParams.id}
+              ciSignalId={resolvedSearchParams.signal}
+              initialRecommendation={resolvedSearchParams.recommendation}
+              onClose={handleClose}
+              currentMode={viewMode}
+              onModeChange={setViewMode}
+            />
+          </motion.div>
+        )}
 
-      {viewMode === 'add-steps' && procedure && (
-        <ProcedureStepEditor
-          procedureId={resolvedParams.id}
-          initialSteps={procedure.steps || []}
-          onSave={handleSaveSteps}
-          currentMode={viewMode}
-          onModeChange={setViewMode}
-        />
-      )}
+        {viewMode === 'add-steps' && procedure && (
+          <motion.div
+            key="add-steps"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <ProcedureStepEditor
+              procedureId={resolvedParams.id}
+              initialSteps={procedure.steps || []}
+              onSave={handleSaveSteps}
+              currentMode={viewMode}
+              onModeChange={setViewMode}
+            />
+          </motion.div>
+        )}
 
-      {viewMode === 'history' && (
-        <ProcedureVersionHistory
-          procedureId={resolvedParams.id}
-          currentMode={viewMode}
-          onModeChange={setViewMode}
-        />
-      )}
+        {viewMode === 'history' && (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <ProcedureVersionHistory
+              procedureId={resolvedParams.id}
+              currentMode={viewMode}
+              onModeChange={setViewMode}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
