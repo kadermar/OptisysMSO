@@ -9,6 +9,9 @@ export function TourOverlay() {
   const {
     currentStep,
     selectedProcedureName,
+    uploadedDocumentId,
+    completedWorkOrderId,
+    editedProcedureVersion,
     nextStep,
     prevStep,
     endTour,
@@ -22,13 +25,34 @@ export function TourOverlay() {
   const isLastStep = currentStep === TOTAL_STEPS;
   const isFirstStep = currentStep === 1;
 
-  // Check if we can proceed (some steps require selection)
+  // Check if we can proceed (some steps require completion)
   const canProceed = () => {
-    // Step 1 requires procedure selection
-    if (currentStep === 1 && !selectedProcedureName) {
+    // Step 1 requires document upload
+    if (currentStep === 1 && !uploadedDocumentId) {
+      return false;
+    }
+    // Step 2 requires procedure selection
+    if (currentStep === 2 && !selectedProcedureName) {
+      return false;
+    }
+    // Step 5 requires work order submission
+    if (currentStep === 5 && !completedWorkOrderId) {
+      return false;
+    }
+    // Step 9 requires procedure edit save
+    if (currentStep === 9 && !editedProcedureVersion) {
       return false;
     }
     return true;
+  };
+
+  // Get contextual button text for gated steps
+  const getNextButtonText = () => {
+    if (currentStep === 1 && !uploadedDocumentId) return 'Upload a Document';
+    if (currentStep === 2 && !selectedProcedureName) return 'Select a Procedure';
+    if (currentStep === 5 && !completedWorkOrderId) return 'Submit Work Order';
+    if (currentStep === 9 && !editedProcedureVersion) return 'Save Changes';
+    return 'Next Step';
   };
 
   return (
@@ -109,7 +133,7 @@ export function TourOverlay() {
                       : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  {currentStep === 1 && !selectedProcedureName ? 'Select a Procedure' : 'Next Step'}
+                  {getNextButtonText()}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               )}

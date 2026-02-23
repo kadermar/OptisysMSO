@@ -101,7 +101,7 @@ export async function POST() {
   } catch (error) {
     console.error('Error during backfill:', error);
     return NextResponse.json(
-      { error: 'Failed to backfill checkpoints', details: String(error) },
+      { error: 'Failed to backfill checkpoints' },
       { status: 500 }
     );
   }

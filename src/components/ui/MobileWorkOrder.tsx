@@ -187,7 +187,7 @@ export function MobileWorkOrder() {
   }, []);
 
   useEffect(() => {
-    if (tour?.isActive && tour?.currentStep === 4 && tour?.selectedProcedureId && procedures.length > 0) {
+    if (tour?.isActive && tour?.currentStep === 5 && tour?.selectedProcedureId && procedures.length > 0) {
       if (!selectedProcedure) {
         setSelectedProcedure(tour.selectedProcedureId);
       }
@@ -270,7 +270,10 @@ export function MobileWorkOrder() {
 
       const response = await fetch('/api/dashboard/work-orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || '',
+        },
         body: JSON.stringify({
           procedure_id: selectedProcedure,
           facility_id: selectedFacility,
@@ -287,7 +290,7 @@ export function MobileWorkOrder() {
 
       if (response.ok) {
         const data = await response.json();
-        if (tour?.isActive && tour?.currentStep === 4 && tour?.setCompletedWorkOrder) {
+        if (tour?.isActive && tour?.currentStep === 5 && tour?.setCompletedWorkOrder) {
           tour.setCompletedWorkOrder(data.wo_id);
         }
         setToast({

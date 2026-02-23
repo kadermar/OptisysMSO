@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
+import { randomUUID } from 'crypto';
 
 export async function POST(request: Request) {
   try {
@@ -24,14 +25,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate a unique work order ID in format WO-XXXX
-    const maxIdResult = await sql`
-      SELECT MAX(CAST(SUBSTRING(wo_id FROM 4) AS INTEGER)) as max_id
-      FROM work_orders
-      WHERE wo_id LIKE 'WO-%'
-    `;
-    const nextNumber = (maxIdResult.rows[0].max_id || 1000) + 1;
-    const nextWoId = `WO-${nextNumber}`;
+    // Generate a collision-free work order ID using a UUID fragment.
+    // The previous MAX()+1 approach had a race condition under concurrent requests.
+    const nextWoId = `WO-${randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
 
     // Calculate completion percentage (0-100 scale)
     const completionPercentage = totalSteps > 0

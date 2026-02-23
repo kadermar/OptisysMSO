@@ -395,7 +395,7 @@ function KnowledgeBaseContent() {
 
   const handleRowClick = async (item: any, type: string) => {
     if (type === 'procedure') {
-      if (tour?.isActive && tour?.currentStep === 1) {
+      if (tour?.isActive && tour?.currentStep === 2) {
         tour.setSelectedProcedure(item.procedure_id, item.name);
       }
       try {
@@ -468,7 +468,7 @@ function KnowledgeBaseContent() {
 
       {/* Tour Guidance */}
       <AnimatePresence>
-        {tour?.isActive && (tour?.currentStep === 1 || tour?.currentStep === 5) && (
+        {tour?.isActive && (tour?.currentStep === 2 || tour?.currentStep === 6) && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -482,22 +482,22 @@ function KnowledgeBaseContent() {
                 </div>
                 <div className="flex-1">
                   <p className="text-white font-semibold">
-                    {tour?.currentStep === 1 ? 'Select a Procedure' : 'Data Hub - Work Order Records'}
+                    {tour?.currentStep === 2 ? 'Select a Procedure' : 'Data Hub - Work Order Records'}
                   </p>
                   <p className="text-gray-300 text-sm">
-                    {tour?.currentStep === 1
+                    {tour?.currentStep === 2
                       ? 'Click on any procedure row below to select it for the tour.'
                       : 'Every completed task is stored here. Your work order now appears in the list.'}
                   </p>
                 </div>
               </div>
-              {tour?.currentStep === 1 && tour.selectedProcedureName && (
+              {tour?.currentStep === 2 && tour.selectedProcedureName && (
                 <div className="mt-3 p-2 bg-green-500/20 rounded-lg border border-green-500/50 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400" />
                   <p className="text-green-400 text-sm">Selected: <strong>{tour.selectedProcedureName}</strong></p>
                 </div>
               )}
-              {tour?.currentStep === 5 && tour.completedWorkOrderId && (
+              {tour?.currentStep === 6 && tour.completedWorkOrderId && (
                 <div className="mt-3 p-2 bg-green-500/20 rounded-lg border border-green-500/50 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400" />
                   <p className="text-green-400 text-sm">Look for: <strong>{tour.completedWorkOrderId}</strong></p>

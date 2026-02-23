@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { db } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
@@ -17,28 +18,27 @@ export async function POST(request: Request) {
       apiKey: process.env.OPENAI_API_KEY || '',
     });
 
-    // Fetch full procedure details and step-level metrics for context
+    // Fetch full procedure details and step-level metrics directly from DB.
+    // Previously used HTTP self-calls which required NEXT_PUBLIC_BASE_URL (exposed
+    // in the client bundle) and silently broke in production when not configured.
     const procedureContext = await Promise.all(
       (dashboardData.procedures?.slice(0, 5) || []).map(async (p: any) => {
         try {
-          // Fetch procedure details
-          const procResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/procedures/${p.procedure_id}`);
-          const fullProcedure = procResponse.ok ? await procResponse.json() : {};
-
-          // Fetch step-level adherence metrics
-          const stepResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/dashboard/procedure-steps?procedureId=${p.procedure_id}&startDate=2024-01-01&endDate=2025-12-31`);
-          const stepMetrics = stepResponse.ok ? await stepResponse.json() : [];
+          const [fullProcedure, stepMetrics] = await Promise.all([
+            db.getProcedureWithSteps(p.procedure_id),
+            db.getProcedureStepAnalysis(p.procedure_id, '2024-01-01', '2025-12-31'),
+          ]);
 
           return {
             ...p,
-            steps: fullProcedure.steps || [],
-            description: fullProcedure.description,
-            stepMetrics: stepMetrics, // Add adherence data for each step
+            steps: fullProcedure?.steps || [],
+            description: (fullProcedure as any)?.description,
+            stepMetrics,
           };
-        } catch (error) {
-          console.error(`Failed to fetch procedure ${p.procedure_id}:`, error);
+        } catch (err) {
+          console.error(`Failed to fetch procedure ${p.procedure_id}:`, err);
+          return p;
         }
-        return p;
       })
     );
 
@@ -152,24 +152,20 @@ Analyze the data comprehensively and provide a detailed, insightful response to 
       console.error('Failed to parse source identification:', e);
     }
 
-    // Filter relevant procedures and fetch their full details
+    // Filter relevant procedures and fetch their full details directly from DB
     const relevantProcedures = dashboardData.procedures?.filter((p: any) =>
       (relevantSourceNames.procedures || []).some((name: string) =>
         p.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(p.name.toLowerCase())
       )
     ) || [];
 
-    // Fetch full procedure documents including steps and step-level metrics
     const proceduresWithDetails = await Promise.all(
       relevantProcedures.map(async (p: any) => {
         try {
-          // Fetch procedure details
-          const procResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/procedures/${p.procedure_id}`);
-          const fullProcedure = procResponse.ok ? await procResponse.json() : {};
-
-          // Fetch step-level adherence metrics
-          const stepResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/dashboard/procedure-steps?procedureId=${p.procedure_id}&startDate=2024-01-01&endDate=2025-12-31`);
-          const stepMetrics = stepResponse.ok ? await stepResponse.json() : [];
+          const [fullProcedure, stepMetrics] = await Promise.all([
+            db.getProcedureWithSteps(p.procedure_id),
+            db.getProcedureStepAnalysis(p.procedure_id, '2024-01-01', '2025-12-31'),
+          ]);
 
           return {
             id: p.procedure_id,
@@ -181,28 +177,27 @@ Analyze the data comprehensively and provide a detailed, insightful response to 
             noncompliant_incidents: p.noncompliant_incidents,
             total_incidents: p.total_incidents,
             metrics: `${p.compliance_rate}% compliance`,
-            steps: fullProcedure.steps || [],
-            stepMetrics: stepMetrics,
-            description: fullProcedure.description,
-            safety_critical: fullProcedure.safety_critical,
+            steps: fullProcedure?.steps || [],
+            stepMetrics,
+            description: (fullProcedure as any)?.description,
+            safety_critical: (fullProcedure as any)?.safety_critical,
           };
-        } catch (error) {
-          console.error(`Failed to fetch procedure ${p.procedure_id}:`, error);
+        } catch (err) {
+          console.error(`Failed to fetch procedure ${p.procedure_id}:`, err);
+          return {
+            id: p.procedure_id,
+            name: p.name,
+            type: 'procedure',
+            category: p.category,
+            compliance_rate: p.compliance_rate,
+            compliant_incidents: p.compliant_incidents,
+            noncompliant_incidents: p.noncompliant_incidents,
+            total_incidents: p.total_incidents,
+            metrics: `${p.compliance_rate}% compliance`,
+            steps: [],
+            stepMetrics: [],
+          };
         }
-        // Return basic info if fetch fails
-        return {
-          id: p.procedure_id,
-          name: p.name,
-          type: 'procedure',
-          category: p.category,
-          compliance_rate: p.compliance_rate,
-          compliant_incidents: p.compliant_incidents,
-          noncompliant_incidents: p.noncompliant_incidents,
-          total_incidents: p.total_incidents,
-          metrics: `${p.compliance_rate}% compliance`,
-          steps: [],
-          stepMetrics: [],
-        };
       })
     );
 
@@ -248,7 +243,7 @@ Analyze the data comprehensively and provide a detailed, insightful response to 
   } catch (error) {
     console.error('Error in AI Assistant:', error);
     return NextResponse.json(
-      { error: 'Failed to process AI request. Make sure OPENAI_API_KEY is set in your environment.' },
+      { error: 'Failed to process request' },
       { status: 500 }
     );
   }

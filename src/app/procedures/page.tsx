@@ -318,7 +318,7 @@ function ProceduresContent() {
       </header>
 
       {/* Tour Step 3 Guidance - View Procedure Details */}
-      {tour?.isActive && tour?.currentStep === 3 && (
+      {tour?.isActive && tour?.currentStep === 4 && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -327,7 +327,7 @@ function ProceduresContent() {
           <div className="max-w-[1600px] mx-auto">
             <div className="p-5 bg-gradient-to-r from-[#1c2b40] to-[#2d3e54] rounded-2xl border-2 border-[#ff0000] shadow-xl">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-[#ff0000] flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg">3</div>
+                <div className="w-10 h-10 rounded-full bg-[#ff0000] flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg">4</div>
                 <div className="flex-1">
                   <p className="text-white font-semibold text-lg">Procedure Analysis - View Details & Metrics</p>
                   <p className="text-gray-300 text-sm mt-1">
@@ -370,8 +370,8 @@ function ProceduresContent() {
         </motion.div>
       )}
 
-      {/* Tour Step 7 Guidance - View Work Order Impact */}
-      {tour?.isActive && tour?.currentStep === 7 && (
+      {/* Tour Step 10 Guidance - Version History */}
+      {tour?.isActive && tour?.currentStep === 10 && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -380,12 +380,11 @@ function ProceduresContent() {
           <div className="max-w-[1600px] mx-auto">
             <div className="p-5 bg-gradient-to-r from-[#1c2b40] to-[#2d3e54] rounded-2xl border-2 border-[#ff0000] shadow-xl">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-[#ff0000] flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg">7</div>
+                <div className="w-10 h-10 rounded-full bg-[#ff0000] flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg">10</div>
                 <div className="flex-1">
-                  <p className="text-white font-semibold text-lg">Work Order Impact - See Your Task in the System</p>
+                  <p className="text-white font-semibold text-lg">Version History - Track Procedure Evolution</p>
                   <p className="text-gray-300 text-sm mt-1">
-                    Let&apos;s return to {tour.selectedProcedureName ? `"${tour.selectedProcedureName}"` : 'the procedure you worked on'}.
-                    Your completed work order now appears in the history below. Notice how the compliance rate, quality scores, and step adherence metrics have been updated.
+                    Every procedure edit creates a new version with full audit trail. View the version history showing who made changes, when, and why - including which CI signal triggered the update.
                   </p>
                 </div>
               </div>

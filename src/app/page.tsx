@@ -205,6 +205,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState({ start: '2024-01-01', end: '2024-09-30' });
+  const [ciSignals, setCiSignals] = useState<any[]>([]);
 
   // Computed stats
   const stats = useMemo(() => {
@@ -213,6 +214,7 @@ export default function DashboardPage() {
     const avgQuality = workOrders.length > 0
       ? (workOrders.reduce((sum, wo) => sum + (parseFloat(wo.quality_score) || 0), 0) / workOrders.length).toFixed(1)
       : '0';
+    const activeCISignals = procedures.filter(p => p.has_open_signals).length;
     return {
       totalWorkOrders: workOrders.length,
       totalProcedures: procedures.length,
@@ -220,6 +222,7 @@ export default function DashboardPage() {
       totalIncidents,
       avgQuality,
       complianceRate: summary.overallCompliance || 0,
+      activeCISignals,
     };
   }, [summary, workOrders, procedures, workers]);
 
@@ -319,19 +322,19 @@ export default function DashboardPage() {
             className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5"
           >
             <StatCard
-              icon={ClipboardList}
-              label="Work Orders"
-              value={stats?.totalWorkOrders || 0}
-              subValue="Total executed"
-              color="blue"
-            />
-            <StatCard
               icon={CheckCircle}
               label="Compliance Rate"
               value={`${stats?.complianceRate || 0}%`}
               subValue="Overall performance"
               trend={2.4}
               color="green"
+            />
+            <StatCard
+              icon={TrendingDown}
+              label="CI Signals"
+              value={stats?.activeCISignals || 0}
+              subValue="Active improvements"
+              color="amber"
             />
             <StatCard
               icon={BarChart3}
@@ -346,7 +349,7 @@ export default function DashboardPage() {
               value={stats?.totalIncidents || 0}
               subValue="Safety events"
               trend={-5.2}
-              color="amber"
+              color="red"
             />
           </motion.div>
 
@@ -355,28 +358,35 @@ export default function DashboardPage() {
             variants={staggerContainer}
             initial="initial"
             animate="animate"
-            className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
           >
             <NavCard
-              href="/procedures"
+              href="/mso/governance"
               icon={FileText}
-              title="Procedures"
-              description="Analyze procedure metrics"
-              color="from-red-500 to-rose-600"
+              title="Governance"
+              description="Procedures & regulations"
+              color="from-blue-500 to-indigo-600"
+            />
+            <NavCard
+              href="/mso/signals"
+              icon={TrendingDown}
+              title="CI Signals"
+              description={`${stats?.activeCISignals || 0} active signals`}
+              color="from-amber-500 to-orange-600"
+            />
+            <NavCard
+              href="/mso/field-experience"
+              icon={ClipboardList}
+              title="Field Experience"
+              description="Mobile work order interface"
+              color="from-green-500 to-emerald-600"
             />
             <NavCard
               href="/compliance-analysis"
               icon={BarChart3}
               title="Business Value"
               description="Profit impact analysis"
-              color="from-blue-500 to-indigo-600"
-            />
-            <NavCard
-              href="/workers"
-              icon={Users}
-              title="Workers"
-              description="Performance tracking"
-              color="from-green-500 to-emerald-600"
+              color="from-purple-500 to-violet-600"
             />
           </motion.div>
         </div>
@@ -384,7 +394,7 @@ export default function DashboardPage() {
 
       {/* Tour Guidance */}
       <AnimatePresence>
-        {tour?.isActive && (tour?.currentStep === 6 || tour?.currentStep === 8) && (
+        {tour?.isActive && (tour?.currentStep === 7 || tour?.currentStep === 8 || tour?.currentStep === 12) && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -398,25 +408,33 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex-1">
                   <p className="text-white font-semibold">
-                    {tour?.currentStep === 6 ? 'Analytics Engine - See Your Data in Action' : 'Feedback Loop - Continuous Improvement'}
+                    {tour?.currentStep === 7 && 'Analytics Engine - See Your Data in Action'}
+                    {tour?.currentStep === 8 && 'CI Signal Detection - Improvement Opportunity'}
+                    {tour?.currentStep === 12 && 'Complete System Loop - Continuous Improvement'}
                   </p>
                   <p className="text-gray-300 text-sm">
-                    {tour?.currentStep === 6
-                      ? 'The Analytics Engine correlates procedure adherence with operational outcomes. Your completed task contributes to these metrics.'
-                      : 'The Feedback Loop closes the circle. Insights inform procedure updates for continuous improvement.'}
+                    {tour?.currentStep === 7 && 'The Analytics Engine correlates procedure adherence with operational outcomes. Your completed task contributes to these metrics.'}
+                    {tour?.currentStep === 8 && 'Notice the CI Signal badge. The system has detected an improvement opportunity based on field data patterns.'}
+                    {tour?.currentStep === 12 && 'You\'ve completed the full OptiSys cycle. Every task execution makes the system smarter through continuous improvement.'}
                   </p>
                 </div>
               </div>
-              {tour?.currentStep === 6 && tour.completedWorkOrderId && (
+              {tour?.currentStep === 7 && tour.completedWorkOrderId && (
                 <div className="mt-3 p-2 bg-green-500/20 rounded-lg border border-green-500/50 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-400" />
                   <p className="text-green-300 text-sm">Work Order #{tour.completedWorkOrderId} is now reflected in analytics</p>
                 </div>
               )}
               {tour?.currentStep === 8 && (
+                <div className="mt-3 p-2 bg-amber-500/20 rounded-lg border border-amber-500/50">
+                  <p className="text-amber-300 text-sm font-medium">CI Signal Detected!</p>
+                  <p className="text-gray-400 text-xs mt-1">Look for the amber badge indicating an improvement opportunity for the procedure.</p>
+                </div>
+              )}
+              {tour?.currentStep === 12 && (
                 <div className="mt-3 p-2 bg-blue-500/20 rounded-lg border border-blue-500/50">
                   <p className="text-blue-300 text-sm font-medium">Tour Complete!</p>
-                  <p className="text-gray-400 text-xs mt-1">You've seen how OptiSys connects governance to operations. Explore freely or restart anytime.</p>
+                  <p className="text-gray-400 text-xs mt-1">You've seen the complete Loop A cycle: Upload → Execute → Analyze → Improve → Measure.</p>
                 </div>
               )}
             </div>
@@ -458,6 +476,88 @@ export default function DashboardPage() {
             >
               <ExecutiveSummary procedureData={procedures} workerData={workers} />
             </motion.section>
+
+            {/* Active CI Signals */}
+            {procedures.filter(p => p.has_open_signals).length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.25 }}
+                className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+              >
+                <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-amber-50 to-orange-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-6 bg-gradient-to-b from-amber-500 to-orange-600 rounded-full" />
+                      <div>
+                        <h3 className="font-bold text-[#1c2b40]">Active CI Signals</h3>
+                        <p className="text-xs text-gray-600">Improvement opportunities</p>
+                      </div>
+                    </div>
+                    <Link
+                      href="/mso/signals"
+                      className="text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                    >
+                      View All
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+                  {procedures.filter(p => p.has_open_signals).slice(0, 3).map((proc: any, idx: number) => (
+                    <Link
+                      key={proc.procedure_id}
+                      href={`/mso/signals`}
+                      className="block"
+                    >
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 + idx * 0.05 }}
+                        className="group bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-3 border border-amber-200 hover:border-amber-300 hover:shadow-md transition-all cursor-pointer"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <TrendingDown className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-[#1c2b40] group-hover:text-amber-700 transition-colors truncate">
+                              {proc.name}
+                            </p>
+                            <p className="text-xs text-gray-600 mt-0.5">{proc.procedure_id}</p>
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              {proc.compliance_rate < 80 && (
+                                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-semibold">
+                                  {proc.compliance_rate}% Compliance
+                                </span>
+                              )}
+                              {proc.incident_rate > 5 && (
+                                <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px] font-semibold">
+                                  {proc.incident_rate}% Incidents
+                                </span>
+                              )}
+                              {proc.rework_rate > 15 && (
+                                <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded text-[10px] font-semibold">
+                                  {proc.rework_rate}% Rework
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-amber-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all shrink-0" />
+                        </div>
+                      </motion.div>
+                    </Link>
+                  ))}
+                  {procedures.filter(p => p.has_open_signals).length === 0 && (
+                    <div className="text-center py-8">
+                      <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 font-medium">No active signals</p>
+                      <p className="text-xs text-gray-500 mt-1">All procedures performing well</p>
+                    </div>
+                  )}
+                </div>
+              </motion.section>
+            )}
 
             {/* Compliance by Facility */}
             <motion.section

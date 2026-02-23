@@ -28,11 +28,11 @@ export default function ChatPage() {
       </header>
 
       {/* Tour Step 2 Guidance */}
-      {tour?.isActive && tour?.currentStep === 2 && (
+      {tour?.isActive && tour?.currentStep === 3 && (
         <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 p-4 bg-gradient-to-r from-[#1c2b40] to-[#2d3e54] rounded-lg border-2 border-[#ff0000] flex-shrink-0">
           <div className="max-w-[1600px] mx-auto">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#ff0000] flex items-center justify-center text-white font-bold flex-shrink-0">2</div>
+              <div className="w-8 h-8 rounded-full bg-[#ff0000] flex items-center justify-center text-white font-bold flex-shrink-0">3</div>
               <div className="flex-1">
                 <p className="text-white font-medium">AI Copilot - Natural Language Interface</p>
                 <p className="text-gray-300 text-sm">Ask questions about procedures, compliance trends, or operational performance. The AI has access to all your data.</p>

@@ -183,7 +183,11 @@ interface Message {
     sources?: Sources;
 }
 
-export function AnimatedAIChat() {
+interface AnimatedAIChatProps {
+    customSuggestions?: CommandSuggestion[];
+}
+
+export function AnimatedAIChat({ customSuggestions }: AnimatedAIChatProps = {}) {
     const [value, setValue] = useState("");
     const [attachments, setAttachments] = useState<string[]>([]);
     const [isTyping, setIsTyping] = useState(false);
@@ -244,7 +248,7 @@ export function AnimatedAIChat() {
     //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     // }, [messages]);
 
-    const commandSuggestions: CommandSuggestion[] = [
+    const defaultSuggestions: CommandSuggestion[] = [
         {
             icon: <Sparkles className="w-4 h-4" />,
             label: "What are the top compliance issues?",
@@ -270,6 +274,8 @@ export function AnimatedAIChat() {
             prefix: "Show me facility safety metrics"
         },
     ];
+
+    const commandSuggestions = customSuggestions || defaultSuggestions;
 
     useEffect(() => {
         if (value.startsWith('/') && !value.includes(' ')) {
@@ -368,6 +374,7 @@ export function AnimatedAIChat() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || '',
                 },
                 body: JSON.stringify({
                     question: userMessage,

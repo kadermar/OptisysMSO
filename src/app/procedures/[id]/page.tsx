@@ -6,6 +6,9 @@ import Link from 'next/link';
 import { DrilldownCards } from '@/components/dashboard/DrilldownCards';
 import { ProcedureStepAnalysis } from '@/components/dashboard/ProcedureStepAnalysis';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import { ProcedureVersionHistory } from '@/components/procedures/ProcedureVersionHistory';
+import { ProcedureStepEditor } from '@/components/procedures/ProcedureStepEditor';
+import { Edit } from 'lucide-react';
 
 export default function ProcedureDrilldownPage() {
   const params = useParams();
@@ -15,13 +18,16 @@ export default function ProcedureDrilldownPage() {
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [procedureSteps, setProcedureSteps] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [proceduresRes, workOrdersRes] = await Promise.all([
+        const [proceduresRes, workOrdersRes, stepsRes] = await Promise.all([
           fetch('/api/dashboard/procedures'),
           fetch('/api/dashboard/work-orders'),
+          fetch(`/api/procedures/${procedureId}`),
         ]);
 
         if (!proceduresRes.ok || !workOrdersRes.ok) {
@@ -30,6 +36,11 @@ export default function ProcedureDrilldownPage() {
 
         setProcedures(await proceduresRes.json());
         setWorkOrders(await workOrdersRes.json());
+
+        if (stepsRes.ok) {
+          const procedureData = await stepsRes.json();
+          setProcedureSteps(procedureData.steps || []);
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Failed to load procedure data. Please try again.');
@@ -39,7 +50,17 @@ export default function ProcedureDrilldownPage() {
     }
 
     fetchData();
-  }, []);
+  }, [procedureId]);
+
+  const handleSaveSteps = async () => {
+    // Refetch data after saving
+    setEditMode(false);
+    const stepsRes = await fetch(`/api/procedures/${procedureId}`);
+    if (stepsRes.ok) {
+      const procedureData = await stepsRes.json();
+      setProcedureSteps(procedureData.steps || []);
+    }
+  };
 
   if (loading) {
     return <LoadingSkeleton />;
@@ -87,6 +108,17 @@ export default function ProcedureDrilldownPage() {
                 {procedure.category} • {procedure.procedure_id}
               </p>
             </div>
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className={`px-4 py-2 rounded-lg font-semibold transition-all flex items-center gap-2 ${
+                editMode
+                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-gradient-to-r from-[#ff0000] to-[#cc0000] text-white hover:shadow-lg'
+              }`}
+            >
+              <Edit className="w-4 h-4" />
+              <span>{editMode ? 'Cancel Edit' : 'Edit Steps'}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -167,6 +199,24 @@ export default function ProcedureDrilldownPage() {
             </div>
           </div>
         </section>
+
+        {/* Step Editor */}
+        {editMode && procedureSteps.length > 0 && (
+          <section>
+            <ProcedureStepEditor
+              procedureId={procedureId}
+              initialSteps={procedureSteps}
+              onSave={handleSaveSteps}
+            />
+          </section>
+        )}
+
+        {/* Version History */}
+        {!editMode && (
+          <section>
+            <ProcedureVersionHistory procedureId={procedureId} />
+          </section>
+        )}
 
         {/* Work Order Details */}
         <section className="bg-white rounded-lg shadow-lg p-6">

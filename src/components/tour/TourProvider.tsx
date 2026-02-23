@@ -11,6 +11,8 @@ interface TourContextType {
   selectedProcedureId: string | null;
   selectedProcedureName: string | null;
   completedWorkOrderId: string | null;
+  uploadedDocumentId: string | null;
+  editedProcedureVersion: string | null;
   startTour: () => void;
   endTour: () => void;
   nextStep: () => void;
@@ -18,6 +20,8 @@ interface TourContextType {
   goToStep: (step: number) => void;
   setSelectedProcedure: (id: string, name: string) => void;
   setCompletedWorkOrder: (id: string) => void;
+  setUploadedDocument: (id: string) => void;
+  setEditedProcedure: (id: string, version: string) => void;
   getCurrentStepInfo: () => typeof tourSteps[0] | null;
 }
 
@@ -49,9 +53,17 @@ export function TourProvider({ children }: TourProviderProps) {
   const [selectedProcedureId, setSelectedProcedureId] = useState<string | null>(null);
   const [selectedProcedureName, setSelectedProcedureName] = useState<string | null>(null);
   const [completedWorkOrderId, setCompletedWorkOrderId] = useState<string | null>(null);
+  const [uploadedDocumentId, setUploadedDocumentId] = useState<string | null>(null);
+  const [editedProcedureVersion, setEditedProcedureVersion] = useState<string | null>(null);
 
   // Load tour state from localStorage on mount
+  // Don't activate tour on MSO routes
   useEffect(() => {
+    const isMSORoute = pathname?.startsWith('/mso');
+    if (isMSORoute) {
+      return; // Don't activate tour on MSO routes
+    }
+
     const savedState = localStorage.getItem('optisys-tour-state');
     if (savedState) {
       try {
@@ -62,12 +74,14 @@ export function TourProvider({ children }: TourProviderProps) {
           setSelectedProcedureId(state.selectedProcedureId || null);
           setSelectedProcedureName(state.selectedProcedureName || null);
           setCompletedWorkOrderId(state.completedWorkOrderId || null);
+          setUploadedDocumentId(state.uploadedDocumentId || null);
+          setEditedProcedureVersion(state.editedProcedureVersion || null);
         }
       } catch (e) {
         console.error('Error loading tour state:', e);
       }
     }
-  }, []);
+  }, [pathname]);
 
   // Save tour state to localStorage when it changes
   useEffect(() => {
@@ -78,11 +92,13 @@ export function TourProvider({ children }: TourProviderProps) {
         selectedProcedureId,
         selectedProcedureName,
         completedWorkOrderId,
+        uploadedDocumentId,
+        editedProcedureVersion,
       }));
     } else {
       localStorage.removeItem('optisys-tour-state');
     }
-  }, [isActive, currentStep, selectedProcedureId, selectedProcedureName, completedWorkOrderId]);
+  }, [isActive, currentStep, selectedProcedureId, selectedProcedureName, completedWorkOrderId, uploadedDocumentId, editedProcedureVersion]);
 
   const getCurrentStepInfo = useCallback(() => {
     return tourSteps.find(step => step.id === currentStep) || null;
@@ -93,21 +109,41 @@ export function TourProvider({ children }: TourProviderProps) {
     if (stepInfo) {
       let targetPath = stepInfo.page;
 
-      // Add procedure ID to relevant pages
-      if (selectedProcedureId && (step === 3 || step === 7)) {
+      // Step 4: Procedure Analysis
+      if (selectedProcedureId && step === 4) {
         targetPath = `/procedures?selected=${selectedProcedureId}`;
       }
 
-      // Go to work orders tab for step 5
-      if (step === 5) {
+      // Step 6: Data Hub - work orders tab
+      if (step === 6) {
         targetPath = '/knowledge-base?tab=workorders';
+      }
+
+      // Step 8: CI Signal Detection - highlight signal on dashboard
+      if (selectedProcedureId && step === 8) {
+        targetPath = `/?highlight_ci_signal=${selectedProcedureId}`;
+      }
+
+      // Step 9: Procedure Editing - edit mode
+      if (selectedProcedureId && step === 9) {
+        targetPath = `/procedures?selected=${selectedProcedureId}&mode=edit`;
+      }
+
+      // Step 10: Version History - show version history
+      if (selectedProcedureId && step === 10) {
+        targetPath = `/procedures?selected=${selectedProcedureId}&show_version_history=true`;
+      }
+
+      // Step 11: Before/After Comparison - compare versions
+      if (selectedProcedureId && editedProcedureVersion && step === 11) {
+        targetPath = `/procedures?selected=${selectedProcedureId}&compare_versions=1.0,${editedProcedureVersion}`;
       }
 
       if (pathname !== targetPath.split('?')[0]) {
         router.push(targetPath);
       }
     }
-  }, [pathname, router, selectedProcedureId]);
+  }, [pathname, router, selectedProcedureId, editedProcedureVersion]);
 
   const startTour = useCallback(() => {
     setIsActive(true);
@@ -115,7 +151,9 @@ export function TourProvider({ children }: TourProviderProps) {
     setSelectedProcedureId(null);
     setSelectedProcedureName(null);
     setCompletedWorkOrderId(null);
-    router.push('/knowledge-base');
+    setUploadedDocumentId(null);
+    setEditedProcedureVersion(null);
+    router.push('/document-ingestion');
   }, [router]);
 
   const endTour = useCallback(() => {
@@ -158,12 +196,23 @@ export function TourProvider({ children }: TourProviderProps) {
     setCompletedWorkOrderId(id);
   }, []);
 
+  const setUploadedDocument = useCallback((id: string) => {
+    setUploadedDocumentId(id);
+  }, []);
+
+  const setEditedProcedure = useCallback((id: string, version: string) => {
+    setSelectedProcedureId(id);
+    setEditedProcedureVersion(version);
+  }, []);
+
   const value: TourContextType = {
     isActive,
     currentStep,
     selectedProcedureId,
     selectedProcedureName,
     completedWorkOrderId,
+    uploadedDocumentId,
+    editedProcedureVersion,
     startTour,
     endTour,
     nextStep,
@@ -171,13 +220,18 @@ export function TourProvider({ children }: TourProviderProps) {
     goToStep,
     setSelectedProcedure,
     setCompletedWorkOrder,
+    setUploadedDocument,
+    setEditedProcedure,
     getCurrentStepInfo,
   };
+
+  // Don't show tour overlay on MSO routes
+  const isMSORoute = pathname?.startsWith('/mso');
 
   return (
     <TourContext.Provider value={value}>
       {children}
-      {isActive && <TourOverlay />}
+      {isActive && !isMSORoute && <TourOverlay />}
     </TourContext.Provider>
   );
 }
