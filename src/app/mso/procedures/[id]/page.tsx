@@ -104,6 +104,7 @@ export default function MSOProcedurePage({ params, searchParams }: {
               onSave={handleSaveSteps}
               currentMode={viewMode}
               onModeChange={setViewMode}
+              procedure={procedure}
             />
           </motion.div>
         )}
@@ -120,6 +121,7 @@ export default function MSOProcedurePage({ params, searchParams }: {
               procedureId={resolvedParams.id}
               currentMode={viewMode}
               onModeChange={setViewMode}
+              procedure={procedure}
             />
           </motion.div>
         )}

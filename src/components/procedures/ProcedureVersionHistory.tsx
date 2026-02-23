@@ -46,27 +46,31 @@ interface ProcedureVersionHistoryProps {
   procedureId: string;
   currentMode?: 'edit' | 'history' | 'add-steps';
   onModeChange?: (mode: 'edit' | 'history' | 'add-steps') => void;
+  procedure?: any;
 }
 
 export function ProcedureVersionHistory({
   procedureId,
   currentMode = 'history',
-  onModeChange
+  onModeChange,
+  procedure: initialProcedure
 }: ProcedureVersionHistoryProps) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedVersion, setExpandedVersion] = useState<number | null>(null);
   const [versionSteps, setVersionSteps] = useState<Record<number, VersionStep[]>>({});
   const [loadingSteps, setLoadingSteps] = useState<Record<number, boolean>>({});
-  const [procedure, setProcedure] = useState<any>(null);
+  const [procedure, setProcedure] = useState<any>(initialProcedure || null);
 
   useEffect(() => {
     fetchVersions();
-    fetch(`/api/procedures/${procedureId}`)
-      .then(res => res.json())
-      .then(data => setProcedure(data))
-      .catch(err => console.error('Error fetching procedure:', err));
-  }, [procedureId]);
+    if (!initialProcedure) {
+      fetch(`/api/procedures/${procedureId}`)
+        .then(res => res.json())
+        .then(data => setProcedure(data))
+        .catch(err => console.error('Error fetching procedure:', err));
+    }
+  }, [procedureId, initialProcedure]);
 
   const fetchVersions = async () => {
     try {

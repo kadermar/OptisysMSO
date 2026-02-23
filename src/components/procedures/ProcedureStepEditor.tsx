@@ -31,6 +31,7 @@ interface ProcedureStepEditorProps {
   onSave?: () => void;
   currentMode?: 'edit' | 'history' | 'add-steps';
   onModeChange?: (mode: 'edit' | 'history' | 'add-steps') => void;
+  procedure?: any;
 }
 
 export function ProcedureStepEditor({
@@ -38,21 +39,24 @@ export function ProcedureStepEditor({
   initialSteps,
   onSave,
   currentMode = 'add-steps',
-  onModeChange
+  onModeChange,
+  procedure: initialProcedure
 }: ProcedureStepEditorProps) {
   const [steps, setSteps] = useState<Step[]>(initialSteps);
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [procedure, setProcedure] = useState<any>(null);
+  const [procedure, setProcedure] = useState<any>(initialProcedure || null);
 
   useEffect(() => {
-    fetch(`/api/procedures/${procedureId}`)
-      .then(res => res.json())
-      .then(data => setProcedure(data))
-      .catch(err => console.error('Error fetching procedure:', err));
-  }, [procedureId]);
+    if (!initialProcedure) {
+      fetch(`/api/procedures/${procedureId}`)
+        .then(res => res.json())
+        .then(data => setProcedure(data))
+        .catch(err => console.error('Error fetching procedure:', err));
+    }
+  }, [procedureId, initialProcedure]);
 
   const [newStep, setNewStep] = useState<Partial<Step>>({
     step_name: '',
