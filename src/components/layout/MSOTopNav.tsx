@@ -3,35 +3,68 @@
 import { useState } from 'react';
 import { Search, Bell, User, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+interface Notification {
+  id: number;
+  type: 'ci_signal' | 'regulation' | 'version' | 'general';
+  title: string;
+  message: string;
+  time: string;
+  unread: boolean;
+  link?: string;
+  procedureId?: string;
+  regulationId?: string;
+  signalId?: string;
+}
 
 export function MSOTopNav() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const notifications = [
+  const notifications: Notification[] = [
     {
       id: 1,
+      type: 'ci_signal',
       title: 'New CI Signal Detected',
       message: 'Procedure INT-031 has a new continuous improvement signal',
       time: '5 minutes ago',
       unread: true,
+      procedureId: 'INT-031',
+      signalId: '#0047',
+      link: '/mso/procedures/INT-031?signal=%230047',
     },
     {
       id: 2,
+      type: 'regulation',
       title: 'Regulation Update',
       message: 'OSHA Standard 1910.147 requires procedure updates',
       time: '1 hour ago',
       unread: true,
+      regulationId: 'REG-2024-001',
+      link: '/mso/regulations/REG-2024-001',
     },
     {
       id: 3,
+      type: 'version',
       title: 'Procedure Version Published',
       message: 'Procedure MNT-202 v2.1 is now active',
       time: '3 hours ago',
       unread: false,
+      procedureId: 'MNT-202',
+      link: '/mso/procedures/MNT-202?mode=history',
     },
   ];
+
+  const handleNotificationClick = (notif: Notification) => {
+    if (notif.link) {
+      router.push(notif.link);
+      setShowNotifications(false);
+    }
+  };
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
@@ -99,6 +132,7 @@ export function MSOTopNav() {
                         {notifications.map((notif) => (
                           <div
                             key={notif.id}
+                            onClick={() => handleNotificationClick(notif)}
                             className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
                               notif.unread ? 'bg-blue-50/50' : ''
                             }`}
@@ -121,9 +155,13 @@ export function MSOTopNav() {
                         ))}
                       </div>
                       <div className="p-3 bg-gray-50 border-t border-gray-200">
-                        <button className="w-full text-center text-sm font-semibold text-[#ff0000] hover:text-[#cc0000] transition-colors">
+                        <Link
+                          href="/mso"
+                          onClick={() => setShowNotifications(false)}
+                          className="block w-full text-center text-sm font-semibold text-[#ff0000] hover:text-[#cc0000] transition-colors"
+                        >
                           View All Notifications
-                        </button>
+                        </Link>
                       </div>
                     </motion.div>
                   </>
