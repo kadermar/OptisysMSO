@@ -86,6 +86,13 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
       ),
     },
     {
+      label: "Procedures",
+      href: "/mso/procedures",
+      icon: (
+        <ClipboardList className="text-white h-5 w-5 flex-shrink-0" />
+      ),
+    },
+    {
       label: "AI Assistant",
       href: "/mso/chat",
       icon: (
