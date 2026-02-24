@@ -179,10 +179,6 @@ export default function MSODashboard() {
             <p className="text-sm text-gray-600">Operational intelligence and performance analytics</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Activity className="w-4 h-4 text-green-500" />
-          <span className="text-green-600 font-medium">Live data</span>
-        </div>
       </div>
 
       {/* KPI Cards */}
