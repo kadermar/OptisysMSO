@@ -19,6 +19,8 @@ import {
   Activity
 } from 'lucide-react';
 import Link from 'next/link';
+import { PredictiveAnalytics } from '@/components/dashboard/PredictiveAnalytics';
+import { CorrelationScatterPlot } from '@/components/compliance/CorrelationScatterPlot';
 
 interface PendingItem {
   id: string;
@@ -42,10 +44,13 @@ export default function MSODashboard() {
     complianceTrend: 2.4,
     incidentsTrend: -5.2
   });
+  const [correlationData, setCorrelationData] = useState<any[]>([]);
+  const [dateRange] = useState({ start: '2024-01-01', end: '2025-12-31' });
 
   useEffect(() => {
     fetchPendingItems();
     fetchKPIData();
+    fetchCorrelationData();
   }, []);
 
   const fetchKPIData = async () => {
@@ -65,6 +70,18 @@ export default function MSODashboard() {
       }
     } catch (error) {
       console.error('Error fetching KPI data:', error);
+    }
+  };
+
+  const fetchCorrelationData = async () => {
+    try {
+      const res = await fetch('/api/compliance/scatter');
+      if (res.ok) {
+        const data = await res.json();
+        setCorrelationData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching correlation data:', error);
     }
   };
 
@@ -181,172 +198,169 @@ export default function MSODashboard() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="bg-white rounded-xl p-6 shadow-lg border border-gray-200"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-              <ClipboardCheck className="w-6 h-6 text-blue-600" />
-            </div>
+      {/* Performance Overview */}
+      <div className="mb-8">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-5">
+          {/* Frame Header */}
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-bold text-[#1c2b40]">Performance Overview</h2>
+            <Link href="/mso/procedures">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-1.5 bg-gradient-to-r from-[#ff0000] to-[#cc0000] text-white text-xs font-semibold rounded-lg hover:shadow-lg transition-all flex items-center gap-1"
+              >
+                <span>View</span>
+                <ArrowRight className="w-3 h-3" />
+              </motion.button>
+            </Link>
           </div>
-          <div className="text-3xl font-bold text-[#1c2b40] mb-1">{kpiData.workOrders}</div>
-          <div className="text-sm font-semibold text-gray-700 mb-1">Work Orders</div>
-          <div className="text-xs text-gray-500">Total executed</div>
-        </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-xl p-6 shadow-lg border border-gray-200"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="flex items-center gap-1 px-2 py-1 bg-green-50 rounded-full">
-              <TrendingUp className="w-3 h-3 text-green-600" />
-              <span className="text-xs font-semibold text-green-600">{kpiData.complianceTrend}%</span>
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-[#1c2b40] mb-1">{kpiData.complianceRate}%</div>
-          <div className="text-sm font-semibold text-gray-700 mb-1">Compliance Rate</div>
-          <div className="text-xs text-gray-500">Overall performance</div>
-        </motion.div>
+          {/* KPI Cards Grid - 1x4 Layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              className="bg-gray-50 rounded-lg p-4 shadow-sm border border-gray-200"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <ClipboardCheck className="w-5 h-5 text-blue-600" />
+                </div>
+              </div>
+              <div className="text-2xl font-bold text-[#1c2b40] mb-1">{kpiData.workOrders}</div>
+              <div className="text-xs font-semibold text-gray-700">Work Orders</div>
+            </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-white rounded-xl p-6 shadow-lg border border-gray-200"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-              <BarChart3 className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-[#1c2b40] mb-1">{kpiData.avgQuality}</div>
-          <div className="text-sm font-semibold text-gray-700 mb-1">Avg Quality</div>
-          <div className="text-xs text-gray-500">Quality score</div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-xl p-6 shadow-lg border border-gray-200"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-orange-600" />
-            </div>
-            <div className="flex items-center gap-1 px-2 py-1 bg-red-50 rounded-full">
-              <TrendingDownIcon className="w-3 h-3 text-red-600" />
-              <span className="text-xs font-semibold text-red-600">{kpiData.incidentsTrend}%</span>
-            </div>
-          </div>
-          <div className="text-3xl font-bold text-[#1c2b40] mb-1">{kpiData.incidents}</div>
-          <div className="text-sm font-semibold text-gray-700 mb-1">Incidents</div>
-          <div className="text-xs text-gray-500">Safety events</div>
-        </motion.div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Link href="/mso/governance">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 hover:shadow-xl hover:border-red-300 transition-all cursor-pointer"
+              className="bg-gray-50 rounded-lg p-4 shadow-sm border border-gray-200"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
                 </div>
-                <span className="text-2xl font-bold text-[#1c2b40]">
-                  {pendingItems.filter(i => i.priority === 'critical' || i.priority === 'high').length}
-                </span>
+                <div className="flex items-center gap-0.5 px-2 py-1 bg-green-50 rounded">
+                  <TrendingUp className="w-3 h-3 text-green-600" />
+                  <span className="text-xs font-semibold text-green-600">{kpiData.complianceTrend}%</span>
+                </div>
               </div>
-              <h3 className="text-sm font-semibold text-gray-600">High Priority</h3>
-              <p className="text-xs text-gray-500 mt-1">Requires immediate attention</p>
+              <div className="text-2xl font-bold text-[#1c2b40] mb-1">{kpiData.complianceRate}%</div>
+              <div className="text-xs font-semibold text-gray-700">Compliance</div>
             </motion.div>
-          </Link>
 
-          <Link href="/mso/signals">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="bg-gray-50 rounded-lg p-4 shadow-sm border border-gray-200"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-purple-600" />
+                </div>
+              </div>
+              <div className="text-2xl font-bold text-[#1c2b40] mb-1">{kpiData.avgQuality}</div>
+              <div className="text-xs font-semibold text-gray-700">Avg Quality</div>
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 hover:shadow-xl hover:border-amber-300 transition-all cursor-pointer"
+              className="bg-gray-50 rounded-lg p-4 shadow-sm border border-gray-200"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <TrendingDown className="w-6 h-6 text-amber-600" />
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
                 </div>
-                <span className="text-2xl font-bold text-[#1c2b40]">
-                  {pendingItems.filter(i => i.type === 'ci_signal').length}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-600">CI Signals</h3>
-              <p className="text-xs text-gray-500 mt-1">Improvement opportunities</p>
-            </motion.div>
-          </Link>
-
-          <Link href="/mso/governance?tab=regulations">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 hover:shadow-xl hover:border-blue-300 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-blue-600" />
+                <div className="flex items-center gap-0.5 px-2 py-1 bg-red-50 rounded">
+                  <TrendingDownIcon className="w-3 h-3 text-red-600" />
+                  <span className="text-xs font-semibold text-red-600">{kpiData.incidentsTrend}%</span>
                 </div>
-                <span className="text-2xl font-bold text-[#1c2b40]">
-                  {pendingItems.filter(i => i.type === 'regulation').length}
-                </span>
               </div>
-              <h3 className="text-sm font-semibold text-gray-600">Regulations</h3>
-              <p className="text-xs text-gray-500 mt-1">Compliance updates needed</p>
+              <div className="text-2xl font-bold text-[#1c2b40] mb-1">{kpiData.incidents}</div>
+              <div className="text-xs font-semibold text-gray-700">Incidents</div>
             </motion.div>
-          </Link>
-
-          <Link href="/mso/knowledge-base">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 hover:shadow-xl hover:border-green-300 transition-all cursor-pointer"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-green-600" />
-                </div>
-                <span className="text-2xl font-bold text-[#1c2b40]">
-                  {pendingItems.length}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-600">Total Pending</h3>
-              <p className="text-xs text-gray-500 mt-1">Action items requiring review</p>
-            </motion.div>
-          </Link>
+          </div>
         </div>
+      </div>
 
-        {/* Pending Items List */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-            <h2 className="text-lg font-bold text-[#1c2b40]">Pending Action Items</h2>
-            <p className="text-sm text-gray-600">Items requiring your review and action</p>
+      {/* AI Insights */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-[#1c2b40] mb-2">AI Insights</h3>
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Corrosion Inspection (INT-031)</strong> shows 68% skip rate on Step 5 -
+                    consider simplifying verification language
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>OSHA update</strong> affects 3 mechanical procedures -
+                    AI has drafted compliance changes for your review
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Procedures with &gt;90% compliance can be streamlined by 15% on average -
+                    review optimization opportunities
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Statistical Analysis and Summary Cards Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Statistical Analysis - 66% */}
+          <div className="lg:col-span-2">
+            {correlationData.length > 0 ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="h-full"
+              >
+                <CorrelationScatterPlot data={correlationData} />
+              </motion.div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-pulse text-gray-600 font-medium mb-2">Loading statistical analysis...</div>
+                  <p className="text-sm text-gray-500">Fetching correlation data</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="divide-y divide-gray-200">
+          {/* Pending Action Items - 33% */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden h-full flex flex-col">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                <h2 className="text-lg font-bold text-[#1c2b40]">Pending Action Items</h2>
+                <p className="text-sm text-gray-600">Items requiring your review and action</p>
+              </div>
+
+              <div className="divide-y divide-gray-200 overflow-y-auto flex-1">
             {pendingItems.length === 0 ? (
               <div className="px-6 py-12 text-center">
                 <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
@@ -408,47 +422,18 @@ export default function MSODashboard() {
                 </motion.div>
               ))
             )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* AI Recommendations */}
+        {/* Predictive Analytics & Risk Scoring */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200"
+          transition={{ delay: 0.7 }}
         >
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-[#1c2b40] mb-2">AI Insights</h3>
-              <ul className="space-y-2 text-sm text-gray-700">
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>
-                    <strong>Corrosion Inspection (INT-031)</strong> shows 68% skip rate on Step 5 -
-                    consider simplifying verification language
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>
-                    <strong>OSHA update</strong> affects 3 mechanical procedures -
-                    AI has drafted compliance changes for your review
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>
-                    Procedures with &gt;90% compliance can be streamlined by 15% on average -
-                    review optimization opportunities
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </div>
+          <PredictiveAnalytics dateRange={dateRange} />
         </motion.div>
     </div>
   );

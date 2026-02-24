@@ -51,11 +51,11 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
 
   const getRiskColor = (category: string) => {
     switch (category) {
-      case 'Critical': return { bg: 'bg-red-100', text: 'text-red-900', border: 'border-red-400', bar: '#ef4444' };
-      case 'High': return { bg: 'bg-orange-100', text: 'text-orange-900', border: 'border-orange-400', bar: '#f97316' };
-      case 'Medium': return { bg: 'bg-yellow-100', text: 'text-yellow-900', border: 'border-yellow-400', bar: '#eab308' };
-      case 'Low': return { bg: 'bg-green-100', text: 'text-green-900', border: 'border-green-400', bar: '#22c55e' };
-      default: return { bg: 'bg-gray-100', text: 'text-gray-900', border: 'border-gray-400', bar: '#6b7280' };
+      case 'Critical': return { bg: 'bg-red-100', text: 'text-red-900', border: 'border-red-400', bar: '#ef4444', gradient: 'url(#criticalGradient)' };
+      case 'High': return { bg: 'bg-orange-100', text: 'text-orange-900', border: 'border-orange-400', bar: '#f97316', gradient: 'url(#highGradient)' };
+      case 'Medium': return { bg: 'bg-yellow-100', text: 'text-yellow-900', border: 'border-yellow-400', bar: '#eab308', gradient: 'url(#mediumGradient)' };
+      case 'Low': return { bg: 'bg-green-100', text: 'text-green-900', border: 'border-green-400', bar: '#22c55e', gradient: 'url(#lowGradient)' };
+      default: return { bg: 'bg-gray-100', text: 'text-gray-900', border: 'border-gray-400', bar: '#6b7280', gradient: 'url(#defaultGradient)' };
     }
   };
 
@@ -117,143 +117,217 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
         </div>
       ) : (
         <>
-          {/* Risk Distribution Chart */}
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 mb-8 shadow-inner border border-gray-200">
-            <h3 className="text-lg font-bold text-[#1c2b40] mb-4 flex items-center gap-2">
-              <span className="w-2 h-6 bg-[#ff0000] rounded"></span>
-              Risk Distribution by Procedure
-            </h3>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={predictiveData.slice(0, 10)} margin={{ top: 10, right: 10, left: 0, bottom: 70 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#d1d5db" opacity={0.5} />
-                <XAxis
-                  dataKey="name"
-                  angle={-45}
-                  textAnchor="end"
-                  height={100}
-                  tick={{ fill: '#1c2b40', fontSize: 11, fontWeight: 600 }}
-                />
-                <YAxis
-                  tick={{ fill: '#1c2b40', fontWeight: 600 }}
-                  label={{ value: 'Risk Score', angle: -90, position: 'insideLeft', fill: '#1c2b40', fontWeight: 'bold' }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '2px solid #ff0000',
-                    borderRadius: '0.75rem',
-                    color: '#1c2b40',
-                    fontWeight: 600,
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-                <Bar dataKey="risk_score" radius={[8, 8, 0, 0]}>
-                  {predictiveData.slice(0, 10).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={getRiskColor(entry.risk_category).bar} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Risk Distribution and Analysis Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+            {/* Risk Distribution Chart */}
+            <div className="lg:col-span-3 bg-white rounded-xl p-4 shadow-xl border-2 border-gray-200 relative overflow-hidden">
+              {/* Background decoration */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-red-50 to-orange-50 rounded-full blur-3xl opacity-30 -z-10"></div>
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-blue-50 to-indigo-50 rounded-full blur-3xl opacity-30 -z-10"></div>
 
-          {/* Procedures Table */}
-          <div className="mb-8">
-            <h3 className="text-lg font-bold text-[#1c2b40] mb-4 flex items-center gap-2">
-              <span className="w-2 h-6 bg-[#ff0000] rounded"></span>
-              Detailed Risk Analysis
-            </h3>
-            <div className="overflow-x-auto rounded-xl border-2 border-gray-200 shadow-lg">
-              <table className="w-full text-sm">
-                <thead className="bg-gradient-to-r from-[#1c2b40] to-[#2d3e54]">
-                  <tr>
-                    <th className="px-4 py-4 text-left font-bold text-white">
-                      Procedure
-                    </th>
-                    <th className="px-4 py-4 text-center font-bold text-white">
-                      Risk Score
-                    </th>
-                    <th className="px-4 py-4 text-center font-bold text-white hidden sm:table-cell">
-                      Category
-                    </th>
-                    <th className="px-4 py-4 text-center font-bold text-white hidden md:table-cell">
-                      Compliance
-                    </th>
-                    <th className="px-4 py-4 text-center font-bold text-white hidden lg:table-cell">
-                      Incidents
-                    </th>
-                    <th className="px-4 py-4 text-left font-bold text-white hidden xl:table-cell">
-                      Recommendation
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {predictiveData.map((item) => {
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-3">
+                <h3 className="text-lg font-bold text-[#1c2b40] flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-[#ff0000] to-[#cc0000] rounded-lg flex items-center justify-center text-white shadow-lg">
+                    📊
+                  </div>
+                  Risk Distribution by Procedure
+                </h3>
+                <div className="flex items-center gap-3 text-xs font-semibold">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-gradient-to-br from-red-500 to-red-600 shadow-sm"></div>
+                    <span className="text-gray-700">Critical</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"></div>
+                    <span className="text-gray-700">High</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-sm"></div>
+                    <span className="text-gray-700">Medium</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-gradient-to-br from-green-500 to-green-600 shadow-sm"></div>
+                    <span className="text-gray-700">Low</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-xl p-3 border border-gray-200 shadow-inner">
+                <ResponsiveContainer width="100%" height={450}>
+                  <BarChart data={predictiveData.slice(0, 10)} margin={{ top: 5, right: 15, left: 5, bottom: 35 }}>
+                    <defs>
+                      <linearGradient id="criticalGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#dc2626" stopOpacity={0.85} />
+                      </linearGradient>
+                      <linearGradient id="highGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f97316" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#ea580c" stopOpacity={0.85} />
+                      </linearGradient>
+                      <linearGradient id="mediumGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#eab308" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#ca8a04" stopOpacity={0.85} />
+                      </linearGradient>
+                      <linearGradient id="lowGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#16a34a" stopOpacity={0.85} />
+                      </linearGradient>
+                      <linearGradient id="defaultGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#6b7280" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#4b5563" stopOpacity={0.85} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.6} vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      tick={false}
+                      axisLine={{ stroke: '#9ca3af', strokeWidth: 2 }}
+                      tickLine={false}
+                      label={{
+                        value: 'Procedures',
+                        position: 'insideBottom',
+                        offset: -10,
+                        fill: '#1c2b40',
+                        fontWeight: 'bold',
+                        fontSize: 14
+                      }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#1c2b40', fontWeight: 600, fontSize: 12 }}
+                      axisLine={{ stroke: '#9ca3af', strokeWidth: 2 }}
+                      tickLine={{ stroke: '#9ca3af' }}
+                      label={{ value: 'Risk Score (0-100)', angle: -90, position: 'center', fill: '#1c2b40', fontWeight: 'bold', fontSize: 13, dx: -15 }}
+                      domain={[0, 100]}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255, 0, 0, 0.05)' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload as PredictiveData;
+                          const colors = getRiskColor(data.risk_category);
+                          return (
+                            <div className="bg-white p-4 border-2 border-[#ff0000] rounded-xl shadow-2xl">
+                              <p className="font-bold text-lg mb-3 text-[#1c2b40] border-b-2 border-gray-200 pb-2">
+                                {data.name}
+                              </p>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-sm text-gray-600 font-semibold">Risk Score:</span>
+                                  <span className="text-base font-bold" style={{ color: colors.bar }}>
+                                    {data.risk_score}/100
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-sm text-gray-600 font-semibold">Category:</span>
+                                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${colors.bg} ${colors.text} border ${colors.border}`}>
+                                    {getRiskIcon(data.risk_category)} {data.risk_category}
+                                  </span>
+                                </div>
+                                <div className="border-t border-gray-200 pt-2 mt-2">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-xs text-gray-600">Compliance:</span>
+                                    <span className="text-sm font-bold text-[#1c2b40]">{data.compliance_rate}%</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-xs text-gray-600">Incidents:</span>
+                                    <span className="text-sm font-bold text-[#1c2b40]">{data.incident_rate}%</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-xs text-gray-600">Quality:</span>
+                                    <span className="text-sm font-bold text-[#1c2b40]">{data.avg_quality_score}/10</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar
+                      dataKey="risk_score"
+                      radius={[10, 10, 0, 0]}
+                      maxBarSize={55}
+                      animationDuration={1000}
+                      animationBegin={0}
+                    >
+                      {predictiveData.slice(0, 10).map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={getRiskColor(entry.risk_category).gradient}
+                          stroke={getRiskColor(entry.risk_category).bar}
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Detailed Risk Analysis Table */}
+            <div className="lg:col-span-2 bg-white rounded-xl p-4 shadow-xl border-2 border-gray-200">
+              <h3 className="text-lg font-bold text-[#1c2b40] mb-2 flex items-center gap-2">
+                <span className="w-2 h-6 bg-[#ff0000] rounded"></span>
+                Detailed Risk Analysis
+              </h3>
+
+              <div className="rounded-xl border-2 border-gray-200 shadow-lg">
+                <div className="divide-y divide-gray-200 bg-white">
+                  {predictiveData.slice(0, 10).map((item) => {
                     const colors = getRiskColor(item.risk_category);
                     return (
-                      <tr
+                      <div
                         key={item.procedure_id}
-                        className="hover:bg-gray-50 transition-colors"
+                        className="p-2 hover:bg-gray-50 transition-colors"
                       >
                         {/* Procedure Name */}
-                        <td className="px-4 py-4">
-                          <div className="font-bold text-[#1c2b40]">
-                            {item.name}
+                        <div className="mb-1">
+                          <div className="font-bold text-xs text-[#1c2b40] leading-tight">
+                            {item.name.length > 35 ? item.name.substring(0, 35) + '...' : item.name}
                           </div>
-                          <div className="text-xs text-gray-600 font-medium">
+                          <div className="text-[10px] text-gray-600 font-medium">
                             {item.category}
                           </div>
-                        </td>
+                        </div>
 
-                        {/* Risk Score */}
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="text-xl font-bold" style={{ color: colors.bar }}>
-                              {item.risk_score}
-                            </div>
-                            <div className="w-20 h-2.5 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${item.risk_score}%`,
-                                  backgroundColor: colors.bar
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Risk Category (hidden on mobile) */}
-                        <td className="px-4 py-4 text-center hidden sm:table-cell">
-                          <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold ${colors.bg} ${colors.text} border-2 ${colors.border} shadow-sm`}>
+                        {/* Risk Score and Category */}
+                        <div className="flex items-center justify-between gap-1.5 mb-1">
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${colors.bg} ${colors.text} border ${colors.border}`}>
                             {getRiskIcon(item.risk_category)} {item.risk_category}
                           </span>
-                        </td>
-
-                        {/* Compliance Rate */}
-                        <td className="px-4 py-4 text-center hidden md:table-cell">
-                          <div className="font-bold text-[#1c2b40] text-base">
-                            {item.compliance_rate}%
+                          <div className="text-lg font-bold" style={{ color: colors.bar }}>
+                            {item.risk_score}
                           </div>
-                        </td>
+                        </div>
 
-                        {/* Incident Rate */}
-                        <td className="px-4 py-4 text-center hidden lg:table-cell">
-                          <div className="font-bold text-[#1c2b40] text-base">
-                            {item.incident_rate}%
-                          </div>
-                        </td>
+                        {/* Progress Bar */}
+                        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden shadow-inner mb-1">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${item.risk_score}%`,
+                              backgroundColor: colors.bar
+                            }}
+                          ></div>
+                        </div>
 
-                        {/* Recommendation */}
-                        <td className="px-4 py-4 hidden xl:table-cell">
-                          <div className="text-xs text-gray-700 max-w-xs font-medium">
-                            {item.recommendation}
+                        {/* Metrics */}
+                        <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                          <div>
+                            <span className="text-gray-600">Compliance:</span>
+                            <span className="font-bold text-[#1c2b40] ml-0.5">{item.compliance_rate}%</span>
                           </div>
-                        </td>
-                      </tr>
+                          <div>
+                            <span className="text-gray-600">Incidents:</span>
+                            <span className="font-bold text-[#1c2b40] ml-0.5">{item.incident_rate}%</span>
+                          </div>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              </div>
             </div>
           </div>
 

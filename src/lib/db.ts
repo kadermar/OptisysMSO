@@ -269,16 +269,16 @@ export const db = {
         risk_score,
         -- Risk category
         CASE
-          WHEN risk_score >= 70 THEN 'Critical'
-          WHEN risk_score >= 50 THEN 'High'
-          WHEN risk_score >= 30 THEN 'Medium'
+          WHEN risk_score >= 15 THEN 'Critical'
+          WHEN risk_score >= 10 THEN 'High'
+          WHEN risk_score >= 7 THEN 'Medium'
           ELSE 'Low'
         END as risk_category,
         -- Trend indicators (comparing first half vs second half of period)
         CASE
-          WHEN risk_score >= 70 THEN 'Immediate action required'
-          WHEN risk_score >= 50 THEN 'Enhanced monitoring needed'
-          WHEN risk_score >= 30 THEN 'Standard monitoring'
+          WHEN risk_score >= 15 THEN 'Immediate action required'
+          WHEN risk_score >= 10 THEN 'Enhanced monitoring needed'
+          WHEN risk_score >= 7 THEN 'Standard monitoring'
           ELSE 'Good performance'
         END as recommendation
       FROM risk_calculations
@@ -974,5 +974,36 @@ export const db = {
     `;
 
     return result.rows;
+  },
+
+  // Delete regulation
+  async deleteRegulation(regulationId: string) {
+    // Delete accepted changes first (foreign key constraint)
+    await sql`
+      DELETE FROM accepted_regulation_changes
+      WHERE regulation_id = ${regulationId}
+    `;
+
+    // Delete the regulation
+    const result = await sql`
+      DELETE FROM regulations
+      WHERE regulation_id = ${regulationId}
+      RETURNING regulation_id
+    `;
+
+    return result.rows.length > 0;
+  },
+
+  // Delete procedure
+  async deleteProcedure(procedureId: string) {
+    // Note: This will cascade delete related records based on foreign key constraints
+    // Including: procedure_steps, work_orders, deviations, accepted_regulation_changes
+    const result = await sql`
+      DELETE FROM procedures
+      WHERE procedure_id = ${procedureId}
+      RETURNING procedure_id
+    `;
+
+    return result.rows.length > 0;
   },
 };
