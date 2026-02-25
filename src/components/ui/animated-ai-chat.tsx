@@ -212,20 +212,24 @@ export function AnimatedAIChat({ customSuggestions }: AnimatedAIChatProps = {}) 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [summaryRes, proceduresRes, facilitiesRes, workersRes, workOrdersRes] = await Promise.all([
+                const [summaryRes, proceduresRes, facilitiesRes, workersRes, workOrdersRes, regulationsRes, ciSignalsRes] = await Promise.all([
                     fetch('/api/dashboard/summary'),
                     fetch('/api/dashboard/procedures'),
                     fetch('/api/dashboard/facilities'),
                     fetch('/api/dashboard/workers'),
                     fetch('/api/dashboard/work-orders'),
+                    fetch('/api/regulations'),
+                    fetch('/api/ci-signals?status=open'),
                 ]);
 
-                const [summary, procedures, facilities, workers, workOrders] = await Promise.all([
+                const [summary, procedures, facilities, workers, workOrders, regulations, ciSignals] = await Promise.all([
                     summaryRes.json(),
                     proceduresRes.json(),
                     facilitiesRes.json(),
                     workersRes.json(),
                     workOrdersRes.json(),
+                    regulationsRes.ok ? regulationsRes.json() : [],
+                    ciSignalsRes.ok ? ciSignalsRes.json() : [],
                 ]);
 
                 setDashboardData({
@@ -234,6 +238,8 @@ export function AnimatedAIChat({ customSuggestions }: AnimatedAIChatProps = {}) 
                     facilities,
                     workers,
                     workOrders,
+                    regulations,
+                    ciSignals,
                 });
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);

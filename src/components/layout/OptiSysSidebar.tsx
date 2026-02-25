@@ -86,17 +86,17 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
       ),
     },
     {
-      label: "Procedures",
-      href: "/mso/procedures",
-      icon: (
-        <ClipboardList className="text-white h-5 w-5 flex-shrink-0" />
-      ),
-    },
-    {
       label: "AI Assistant",
       href: "/mso/chat",
       icon: (
         <MessageSquare className="text-white h-5 w-5 flex-shrink-0" />
+      ),
+    },
+    {
+      label: "Field Experience",
+      href: "/mso/field-experience",
+      icon: (
+        <Smartphone className="text-white h-5 w-5 flex-shrink-0" />
       ),
     },
     {
@@ -111,20 +111,6 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
       href: "/mso/signals",
       icon: (
         <TrendingDown className="text-white h-5 w-5 flex-shrink-0" />
-      ),
-    },
-    {
-      label: "Field Experience",
-      href: "/mso/field-experience",
-      icon: (
-        <Smartphone className="text-white h-5 w-5 flex-shrink-0" />
-      ),
-    },
-    {
-      label: "Documentation",
-      href: "/mso/docs",
-      icon: (
-        <BookOpen className="text-white h-5 w-5 flex-shrink-0" />
       ),
     },
   ];

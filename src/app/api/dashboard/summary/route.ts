@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+// Enable caching for this route
+export const revalidate = 60; // Revalidate every 60 seconds
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -28,6 +31,10 @@ export async function GET(request: Request) {
       incidentReduction: incidentReduction.toFixed(1),
       compliantIncidentRate: compliantIncidentRate.toFixed(1),
       nonCompliantIncidentRate: nonCompliantIncidentRate.toFixed(1),
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
     });
   } catch (error) {
     console.error('Error fetching dashboard summary:', error);

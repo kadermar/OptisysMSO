@@ -6,6 +6,15 @@ export async function POST(request: Request) {
   try {
     const { question, dashboardData } = await request.json();
 
+    // Debug logging for CI signals
+    console.log('=== AI Assistant Debug ===');
+    console.log('Question:', question);
+    console.log('CI Signals received:', dashboardData.ciSignals?.length || 0);
+    if (dashboardData.ciSignals) {
+      console.log('CI Signals data:', JSON.stringify(dashboardData.ciSignals, null, 2));
+    }
+    console.log('========================');
+
     if (!question) {
       return NextResponse.json(
         { error: 'Question is required' },
@@ -101,8 +110,49 @@ ${dashboardData.workers?.map((w: any) =>
   `- ${w.worker_name} (${w.experience_level}): ${w.compliance_rate}% compliance, ${w.incident_count} incidents`
 ).join('\n')}
 
+REGULATIONS (${dashboardData.regulations?.length || 0} total):
+${dashboardData.regulations?.map((r: any) => `
+REGULATION: ${r.title} (${r.id})
+Source: ${r.source}
+Priority: ${r.priority}
+Status: ${r.status}
+Effective Date: ${r.effectiveDate ? new Date(r.effectiveDate).toLocaleDateString() : 'Not specified'}
+Affected Procedures: ${r.affectedProcedures?.join(', ') || 'None listed'}
+Summary: ${r.summary || 'No summary provided'}
+${r.keyChanges?.length > 0 ? `Key Changes:\n${r.keyChanges.map((kc: string) => `  - ${kc}`).join('\n')}` : ''}
+`).join('\n---\n')}
+
+CI SIGNALS (Continuous Improvement Opportunities - ${dashboardData.ciSignals?.length || 0} open):
+${dashboardData.ciSignals?.length > 0 ? dashboardData.ciSignals.map((signal: any) => `
+CI SIGNAL: ${signal.signal_id}
+Procedure: ${signal.procedure_name} (${signal.procedure_id})
+${signal.step_id ? `Step: ${signal.step_id}` : ''}
+Type: ${signal.signal_type}
+Severity: ${signal.severity}
+Status: ${signal.status}
+Detected: ${signal.detected_at ? new Date(signal.detected_at).toLocaleDateString() : 'Unknown'}
+Title: ${signal.title}
+Description: ${signal.description}
+Evidence: ${JSON.stringify(signal.evidence || {})}
+Recommendation: ${signal.recommendation_text}
+${signal.suggested_change ? `Suggested Change: ${signal.suggested_change}` : ''}
+`).join('\n---\n') : 'No open CI signals detected'}
+
 Analyze the data comprehensively and provide a detailed, insightful response to the user's question. Include relevant context, trends, and actionable recommendations.
+
+IMPORTANT CONTEXT DEFINITIONS:
+- "CI Signals" or "Continuous Improvement Signals" = Opportunities for improvement detected from operational data (skip rates, deviations, quality issues, etc.)
+- When asked about "procedures with CI signals" or "open CI signals", refer to the CI SIGNALS section above
+- When asked about "regulations", "regulatory changes", "regulations in force", or "regulations in vigor", refer to the REGULATIONS section above, NOT the procedures section
+- When asked about "compliance trends", analyze the compliance_rate data across procedures and over time
+- When asked which "procedures need updating", consider BOTH CI signals AND regulations affecting those procedures
 `;
+
+    // Debug: Log CI signals section of context
+    const ciSignalsSection = context.split('CI SIGNALS')[1]?.split('Analyze the data')[0];
+    console.log('=== CI Signals Context ===');
+    console.log(ciSignalsSection);
+    console.log('========================');
 
     // Call OpenAI API for the main answer
     const completion = await openai.chat.completions.create({
@@ -134,14 +184,14 @@ Analyze the data comprehensively and provide a detailed, insightful response to 
         },
         {
           role: 'user',
-          content: `Question: "${question}"\n\nAvailable sources:\nProcedures: ${dashboardData.procedures?.map((p: any) => p.name).join(', ')}\nFacilities: ${dashboardData.facilities?.map((f: any) => f.name).join(', ')}\nWorkers: ${dashboardData.workers?.map((w: any) => w.worker_name).join(', ')}\n\nRespond with a JSON object listing only the relevant source names:\n{"procedures": [], "facilities": [], "workers": []}`,
+          content: `Question: "${question}"\n\nAvailable sources:\nProcedures: ${dashboardData.procedures?.map((p: any) => p.name).join(', ')}\nFacilities: ${dashboardData.facilities?.map((f: any) => f.name).join(', ')}\nWorkers: ${dashboardData.workers?.map((w: any) => w.worker_name).join(', ')}\nRegulations: ${dashboardData.regulations?.map((r: any) => r.title).join(', ')}\nCI Signals: ${dashboardData.ciSignals?.map((s: any) => `${s.signal_id} (${s.procedure_name})`).join(', ')}\n\nRespond with a JSON object listing only the relevant source names:\n{"procedures": [], "facilities": [], "workers": [], "regulations": [], "ciSignals": []}`,
         },
       ],
       max_tokens: 500,
       temperature: 0.3,
     });
 
-    let relevantSourceNames = { procedures: [], facilities: [], workers: [] };
+    let relevantSourceNames = { procedures: [], facilities: [], workers: [], regulations: [], ciSignals: [] };
     try {
       const sourceResponse = sourceIdentification.choices[0]?.message?.content || '{}';
       const jsonMatch = sourceResponse.match(/\{[\s\S]*\}/);
@@ -231,6 +281,41 @@ Analyze the data comprehensively and provide a detailed, insightful response to 
         incident_count: w.incident_count,
         avg_quality_score: w.avg_quality_score,
         metrics: `${w.compliance_rate}% compliance, ${w.experience_level}`
+      })) || [],
+      regulations: dashboardData.regulations?.filter((r: any) =>
+        (relevantSourceNames.regulations || []).some((name: string) =>
+          r.title.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(r.title.toLowerCase())
+        )
+      ).map((r: any) => ({
+        id: r.id,
+        name: r.title,
+        type: 'regulation',
+        source: r.source,
+        priority: r.priority,
+        status: r.status,
+        effectiveDate: r.effectiveDate,
+        affectedProcedures: r.affectedProcedures,
+        summary: r.summary,
+        metrics: `${r.priority} priority, ${r.status}, affects ${r.affectedProcedures?.length || 0} procedures`
+      })) || [],
+      ciSignals: dashboardData.ciSignals?.filter((s: any) =>
+        (relevantSourceNames.ciSignals || []).some((name: string) =>
+          s.signal_id.toLowerCase().includes(name.toLowerCase()) ||
+          s.procedure_name?.toLowerCase().includes(name.toLowerCase()) ||
+          name.toLowerCase().includes(s.signal_id.toLowerCase())
+        )
+      ).map((s: any) => ({
+        id: s.signal_id,
+        name: `${s.signal_id}: ${s.title}`,
+        type: 'ci_signal',
+        procedureId: s.procedure_id,
+        procedureName: s.procedure_name,
+        signalType: s.signal_type,
+        severity: s.severity,
+        status: s.status,
+        description: s.description,
+        recommendation: s.recommendation_text,
+        metrics: `${s.severity} severity, ${s.signal_type}, affects ${s.procedure_name}`
       })) || [],
       summary: {
         totalWorkOrders: dashboardData.summary?.totalWorkOrders || 0,

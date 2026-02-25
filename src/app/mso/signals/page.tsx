@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, ArrowRight, Filter, Search, ChevronDown, AlertTriangle } from 'lucide-react';
-import Link from 'next/link';
+import { TrendingDown, ArrowRight, Filter, Search, ChevronDown, AlertTriangle, AlertOctagon, AlertCircle, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import CISignalActionModal from '@/components/dashboard/CISignalActionModal';
+import CISignalConfirmationModal from '@/components/dashboard/CISignalConfirmationModal';
 
 // Helper to generate signal ID
 const generateSignalId = (proc: any, index: number) => {
@@ -15,7 +16,7 @@ const generateSignalId = (proc: any, index: number) => {
 const getSeverity = (proc: any) => {
   if (proc.compliance_rate < 70 || proc.incident_rate > 10) return 'critical';
   if (proc.compliance_rate < 80 || proc.incident_rate > 5 || proc.rework_rate > 20) return 'high';
-  if (proc.rework_rate > 15 || proc.avg_quality_score < 70) return 'medium';
+  if (proc.rework_rate > 15 || proc.avg_quality_score < 7.0) return 'medium';
   return 'low';
 };
 
@@ -26,6 +27,16 @@ const getSeverityColor = (severity: string) => {
     case 'high': return 'from-orange-500 to-amber-600';
     case 'medium': return 'from-yellow-500 to-orange-500';
     default: return 'from-blue-500 to-indigo-600';
+  }
+};
+
+// Helper to get severity icon
+const getSeverityIcon = (severity: string) => {
+  switch (severity) {
+    case 'critical': return <AlertOctagon className="w-3 h-3" />;
+    case 'high': return <AlertTriangle className="w-3 h-3" />;
+    case 'medium': return <AlertCircle className="w-3 h-3" />;
+    default: return <Info className="w-3 h-3" />;
   }
 };
 
@@ -42,8 +53,8 @@ const getRecommendation = (proc: any) => {
   if (proc.rework_rate > 15) {
     issues.push(`High rework rate (${proc.rework_rate}%) suggests unclear or inadequate instructions`);
   }
-  if (proc.avg_quality_score < 75) {
-    issues.push(`Below-target quality score (${proc.avg_quality_score}) indicates process effectiveness concerns`);
+  if (proc.avg_quality_score < 7.5) {
+    issues.push(`Below-target quality score (${proc.avg_quality_score}/10) indicates process effectiveness concerns`);
   }
 
   const recommendations = [];
@@ -56,7 +67,7 @@ const getRecommendation = (proc: any) => {
     recommendations.push('Conduct root cause analysis on incidents and rework patterns');
     recommendations.push('Consider adding verification checkpoints at critical steps');
   }
-  if (proc.avg_quality_score < 75) {
+  if (proc.avg_quality_score < 7.5) {
     recommendations.push('Evaluate if quality criteria are well-defined and measurable');
     recommendations.push('Implement peer review process for work order completion');
   }
@@ -69,43 +80,118 @@ const getRecommendation = (proc: any) => {
 
 export default function MSOSignalsPage() {
   const router = useRouter();
-  const [procedures, setProcedures] = useState<any[]>([]);
+  const [ciSignals, setCiSignals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
+  // Modal state management
+  const [selectedSignal, setSelectedSignal] = useState<any>(null);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<any>(null);
+
   useEffect(() => {
-    fetchProcedures();
+    fetchCISignals();
   }, []);
 
-  const fetchProcedures = async () => {
+  const fetchCISignals = async () => {
     try {
-      const response = await fetch('/api/dashboard/procedures');
+      const response = await fetch('/api/ci-signals');
       if (response.ok) {
-        setProcedures(await response.json());
+        const signals = await response.json();
+        setCiSignals(signals);
       }
     } catch (error) {
-      console.error('Error fetching procedures:', error);
+      console.error('Error fetching CI signals:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const categories = useMemo(() => {
-    const cats = new Set(procedures.map(p => p.category).filter(Boolean));
-    return Array.from(cats);
-  }, [procedures]);
+  // Handle action completion from CISignalActionModal
+  const handleActionComplete = async (action: string, data?: any) => {
+    if (action === 'accept' && data?.confirmationData) {
+      // Show confirmation modal with proposed changes
+      setConfirmationData(data.confirmationData);
+      setShowActionModal(false);
+      setShowConfirmationModal(true);
+    } else if (action === 'reject') {
+      // Signal rejected, refresh the list
+      await fetchCISignals();
+      setShowActionModal(false);
+    } else if (action === 'review') {
+      // Navigate to editor with recommendation pre-filled
+      router.push(data.editorUrl);
+    } else if (action === 'manual') {
+      // Navigate to editor for manual editing
+      const signal = selectedSignal;
+      router.push(`/mso/procedures/${signal.procedure_id}?signal=${signal.signal_id}&recommendation=${encodeURIComponent(signal.recommendation_text)}`);
+    }
+  };
 
-  const ciSignalProcedures = useMemo(() => {
-    return procedures.filter(p => p.has_open_signals).filter(p => {
+  // Handle confirmation of changes
+  const handleConfirmChanges = async () => {
+    try {
+      if (!selectedSignal || !confirmationData) return;
+
+      // Apply the accepted recommendation and create procedure version
+      const response = await fetch(`/api/ci-signals/${encodeURIComponent(selectedSignal.signal_id)}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'MSO-001', // TODO: Replace with actual user ID from auth
+          affectedSteps: confirmationData.affectedSteps.map((step: any) => ({
+            stepId: step.stepId,
+            proposedContent: step.proposedContent,
+            changeReason: step.changeReason
+          }))
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Success - close modals and refresh
+        setShowConfirmationModal(false);
+        setSelectedSignal(null);
+        await fetchCISignals();
+
+        // TODO: Show success notification
+        console.log('✅ Changes applied successfully:', result);
+      } else {
+        const error = await response.json();
+        console.error('❌ Failed to apply changes:', error);
+        // TODO: Show error notification
+      }
+    } catch (error) {
+      console.error('❌ Error applying changes:', error);
+      // TODO: Show error notification
+    }
+  };
+
+  const severities = useMemo(() => {
+    const sevs = new Set(ciSignals.map(s => s.severity).filter(Boolean));
+    return ['all', ...Array.from(sevs)];
+  }, [ciSignals]);
+
+  const statuses = useMemo(() => {
+    const stats = new Set(ciSignals.map(s => s.status).filter(Boolean));
+    return ['all', ...Array.from(stats)];
+  }, [ciSignals]);
+
+  const filteredSignals = useMemo(() => {
+    return ciSignals.filter(signal => {
       const matchesSearch = !searchQuery ||
-        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.procedure_id?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter;
-      return matchesSearch && matchesCategory;
+        signal.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        signal.signal_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        signal.procedure_id?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSeverity = severityFilter === 'all' || signal.severity === severityFilter;
+      const matchesStatus = statusFilter === 'all' || signal.status === statusFilter;
+      return matchesSearch && matchesSeverity && matchesStatus;
     });
-  }, [procedures, searchQuery, categoryFilter]);
+  }, [ciSignals, searchQuery, severityFilter, statusFilter]);
 
   if (loading) {
     return (
@@ -141,33 +227,33 @@ export default function MSOSignalsPage() {
               <div>
                 <h2 className="text-lg font-bold text-[#1c2b40] mb-1">Active CI Signals</h2>
                 <p className="text-sm text-gray-600">
-                  {ciSignalProcedures.length} procedure{ciSignalProcedures.length !== 1 ? 's' : ''} flagged for improvement
+                  {filteredSignals.length} signal{filteredSignals.length !== 1 ? 's' : ''} requiring attention
                 </p>
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-red-600">
-                    {ciSignalProcedures.filter(p => p.compliance_rate < 80).length}
+                    {filteredSignals.filter(s => s.severity === 'critical').length}
                   </div>
-                  <div className="text-xs text-gray-600">Low Compliance</div>
+                  <div className="text-xs text-gray-600">Critical</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600">
-                    {ciSignalProcedures.filter(p => p.incident_rate > 5).length}
+                    {filteredSignals.filter(s => s.severity === 'high').length}
                   </div>
-                  <div className="text-xs text-gray-600">High Incidents</div>
+                  <div className="text-xs text-gray-600">High</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-yellow-600">
-                    {ciSignalProcedures.filter(p => p.rework_rate > 15).length}
+                    {filteredSignals.filter(s => s.severity === 'medium').length}
                   </div>
                   <div className="text-xs text-gray-600">High Rework</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {ciSignalProcedures.filter(p => p.avg_quality_score < 75).length}
+                  <div className="text-2xl font-bold text-blue-600">
+                    {filteredSignals.filter(s => s.status === 'open').length}
                   </div>
-                  <div className="text-xs text-gray-600">Low Quality</div>
+                  <div className="text-xs text-gray-600">Open</div>
                 </div>
               </div>
             </div>
@@ -187,37 +273,49 @@ export default function MSOSignalsPage() {
                 />
               </div>
 
-              {categories.length > 0 && (
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-[#ff0000] focus:ring-2 focus:ring-red-100 appearance-none bg-white"
-                  >
-                    <option value="all">All Categories</option>
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                </div>
-              )}
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <select
+                  value={severityFilter}
+                  onChange={(e) => setSeverityFilter(e.target.value)}
+                  className="pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-[#ff0000] focus:ring-2 focus:ring-red-100 appearance-none bg-white"
+                >
+                  {severities.map(sev => (
+                    <option key={sev} value={sev}>
+                      {sev === 'all' ? 'All Severities' : sev.charAt(0).toUpperCase() + sev.slice(1)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
+
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-[#ff0000] focus:ring-2 focus:ring-red-100 appearance-none bg-white"
+                >
+                  {statuses.map(status => (
+                    <option key={status} value={status}>
+                      {status === 'all' ? 'All Statuses' : status.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 
           {/* CI Signals List */}
           <div className="p-6">
             <div className="space-y-4">
-              {ciSignalProcedures.map((proc, idx) => {
-                const signalId = generateSignalId(proc, idx);
-                const severity = getSeverity(proc);
-                const severityColor = getSeverityColor(severity);
-                const { description, recommendation } = getRecommendation(proc);
+              {filteredSignals.map((signal, idx) => {
+                const severityColor = getSeverityColor(signal.severity);
 
                 return (
                 <motion.div
-                  key={proc.procedure_id}
+                  key={signal.signal_id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
@@ -228,25 +326,39 @@ export default function MSOSignalsPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                          <AlertTriangle className="w-6 h-6 text-white" />
+                          {signal.severity === 'critical' && <AlertOctagon className="w-6 h-6 text-white" />}
+                          {signal.severity === 'high' && <AlertTriangle className="w-6 h-6 text-white" />}
+                          {signal.severity === 'medium' && <AlertCircle className="w-6 h-6 text-white" />}
+                          {signal.severity === 'low' && <Info className="w-6 h-6 text-white" />}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-white font-bold text-lg">CI Signal {signalId}</h3>
-                            <span className="px-2 py-0.5 bg-white/30 backdrop-blur-sm text-white text-xs font-bold rounded uppercase">
-                              {severity}
+                            <h3 className="text-white font-bold text-lg">CI Signal {signal.signal_id}</h3>
+                            <span className="px-2 py-0.5 bg-white/30 backdrop-blur-sm text-white text-xs font-bold rounded-md uppercase inline-flex items-center gap-1">
+                              {getSeverityIcon(signal.severity)}
+                              {signal.severity}
                             </span>
+                            {signal.status === 'implemented' && (
+                              <span className="px-2 py-0.5 bg-green-500/90 backdrop-blur-sm text-white text-xs font-bold rounded-md">
+                                IMPLEMENTED
+                              </span>
+                            )}
                           </div>
-                          <p className="text-white/90 text-sm mt-0.5">{proc.name}</p>
+                          <p className="text-white/90 text-sm mt-0.5">{signal.title}</p>
                         </div>
                       </div>
-                      <Link
-                        href={`/mso/procedures/${proc.procedure_id}?signal=${signalId}&recommendation=${encodeURIComponent(recommendation)}`}
-                        className="px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2"
-                      >
-                        <span>Address</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
+                      {signal.status !== 'implemented' && (
+                        <button
+                          onClick={() => {
+                            setSelectedSignal(signal);
+                            setShowActionModal(true);
+                          }}
+                          className="px-4 py-2 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        >
+                          <span>Address</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -254,55 +366,44 @@ export default function MSOSignalsPage() {
                   <div className="p-6 space-y-4">
                     {/* Procedure Info */}
                     <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span className="font-semibold text-[#1c2b40]">{proc.procedure_id}</span>
+                      <span className="font-semibold text-[#1c2b40]">{signal.procedure_id}</span>
                       <span>•</span>
-                      <span>{proc.category}</span>
+                      <span>{signal.signal_type.replace('_', ' ')}</span>
                       <span>•</span>
-                      <span>v{proc.current_version || '1.0'}</span>
-                      <span>•</span>
-                      <span>{proc.total_steps || 0} steps</span>
+                      <span>Detected: {new Date(signal.detected_at).toLocaleDateString()}</span>
+                      {signal.implemented_at && (
+                        <>
+                          <span>•</span>
+                          <span className="text-green-600 font-semibold">Implemented: {new Date(signal.implemented_at).toLocaleDateString()}</span>
+                        </>
+                      )}
                     </div>
 
                     {/* Description */}
                     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                       <h4 className="text-sm font-bold text-gray-700 mb-2">Problem Statement</h4>
-                      <p className="text-sm text-gray-700 leading-relaxed">{description}</p>
+                      <p className="text-sm text-gray-700 leading-relaxed">{signal.description}</p>
                     </div>
 
                     {/* Evidence Metrics */}
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-700 mb-3">Evidence</h4>
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                        {proc.compliance_rate < 80 && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                            <div className="text-xs text-red-600 font-semibold mb-1">Compliance Rate</div>
-                            <div className="text-2xl font-bold text-red-700">{proc.compliance_rate}%</div>
-                            <div className="text-xs text-red-600 mt-1">Target: ≥80%</div>
-                          </div>
-                        )}
-                        {proc.incident_rate > 5 && (
-                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                            <div className="text-xs text-orange-600 font-semibold mb-1">Incident Rate</div>
-                            <div className="text-2xl font-bold text-orange-700">{proc.incident_rate}%</div>
-                            <div className="text-xs text-orange-600 mt-1">Target: ≤5%</div>
-                          </div>
-                        )}
-                        {proc.rework_rate > 15 && (
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                            <div className="text-xs text-yellow-600 font-semibold mb-1">Rework Rate</div>
-                            <div className="text-2xl font-bold text-yellow-700">{proc.rework_rate}%</div>
-                            <div className="text-xs text-yellow-600 mt-1">Target: ≤15%</div>
-                          </div>
-                        )}
-                        {proc.avg_quality_score < 75 && (
-                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                            <div className="text-xs text-purple-600 font-semibold mb-1">Quality Score</div>
-                            <div className="text-2xl font-bold text-purple-700">{proc.avg_quality_score}</div>
-                            <div className="text-xs text-purple-600 mt-1">Target: ≥75</div>
-                          </div>
-                        )}
+                    {signal.evidence && Object.keys(signal.evidence).length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-700 mb-3">Evidence</h4>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                          {Object.entries(signal.evidence).map(([key, value]) => (
+                            <div key={key} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                              <div className="text-xs text-blue-600 font-semibold mb-1">
+                                {key.replace('_', ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                              </div>
+                              <div className="text-2xl font-bold text-blue-700">
+                                {typeof value === 'number' ? value : value}
+                                {key.includes('rate') ? '%' : ''}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Recommendations */}
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -310,13 +411,13 @@ export default function MSOSignalsPage() {
                         <TrendingDown className="w-4 h-4" />
                         Recommended Actions
                       </h4>
-                      <p className="text-sm text-green-900 leading-relaxed">{recommendation}</p>
+                      <p className="text-sm text-green-900 leading-relaxed">{signal.recommendation_text}</p>
                     </div>
                   </div>
                 </motion.div>
               );
               })}
-              {ciSignalProcedures.length === 0 && (
+              {filteredSignals.length === 0 && (
                 <div className="text-center py-12">
                   <TrendingDown className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 font-medium">No CI signals detected</p>
@@ -327,6 +428,26 @@ export default function MSOSignalsPage() {
           </div>
         </div>
       </div>
+
+      {/* Action Modal */}
+      {showActionModal && selectedSignal && (
+        <CISignalActionModal
+          signal={selectedSignal}
+          isOpen={showActionModal}
+          onClose={() => setShowActionModal(false)}
+          onActionComplete={handleActionComplete}
+        />
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmationModal && confirmationData && (
+        <CISignalConfirmationModal
+          confirmationData={confirmationData}
+          isOpen={showConfirmationModal}
+          onConfirm={handleConfirmChanges}
+          onCancel={() => setShowConfirmationModal(false)}
+        />
+      )}
     </div>
   );
 }

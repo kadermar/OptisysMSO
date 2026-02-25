@@ -232,9 +232,10 @@ function KnowledgeBaseContent() {
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [facilities, setFacilities] = useState<any[]>([]);
   const [workers, setWorkers] = useState<any[]>([]);
+  const [regulations, setRegulations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'procedures' | 'work-orders' | 'facilities' | 'workers'>('procedures');
+  const [activeTab, setActiveTab] = useState<'procedures' | 'work-orders' | 'facilities' | 'workers' | 'regulations'>('procedures');
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -246,6 +247,7 @@ function KnowledgeBaseContent() {
   const [woProcedureFilter, setWoProcedureFilter] = useState<string>('all');
   const [facilityTierFilter, setFacilityTierFilter] = useState<string>('all');
   const [workerPlatformFilter, setWorkerPlatformFilter] = useState<string>('all');
+  const [regulationStatusFilter, setRegulationStatusFilter] = useState<string>('all');
 
   // Sorting
   const [sortConfig, setSortConfig] = useState<{ column: string; dir: 'asc' | 'desc' }>({ column: 'name', dir: 'asc' });
@@ -264,19 +266,21 @@ function KnowledgeBaseContent() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [proceduresRes, workOrdersRes, facilitiesRes, workersRes] = await Promise.all([
+        const [proceduresRes, workOrdersRes, facilitiesRes, workersRes, regulationsRes] = await Promise.all([
           fetch('/api/dashboard/procedures'),
           fetch('/api/dashboard/work-orders'),
           fetch('/api/dashboard/facilities'),
           fetch('/api/dashboard/workers'),
+          fetch('/api/regulations'),
         ]);
-        if (!proceduresRes.ok || !workOrdersRes.ok || !facilitiesRes.ok || !workersRes.ok) {
+        if (!proceduresRes.ok || !workOrdersRes.ok || !facilitiesRes.ok || !workersRes.ok || !regulationsRes.ok) {
           throw new Error('Failed to fetch data');
         }
         setProcedures(await proceduresRes.json());
         setWorkOrders(await workOrdersRes.json());
         setFacilities(await facilitiesRes.json());
         setWorkers(await workersRes.json());
+        setRegulations(await regulationsRes.json());
       } catch (error) {
         setError('Failed to load data. Please try again.');
       } finally {
@@ -297,12 +301,14 @@ function KnowledgeBaseContent() {
     setWoProcedureFilter('all');
     setFacilityTierFilter('all');
     setWorkerPlatformFilter('all');
+    setRegulationStatusFilter('all');
     // Reset sort to appropriate default column for each tab
     const defaultSortColumn: Record<string, string> = {
       'procedures': 'name',
       'work-orders': 'scheduled_date',
       'facilities': 'name',
       'workers': 'worker_name',
+      'regulations': 'effective_date',
     };
     setSortConfig({ column: defaultSortColumn[activeTab] || 'name', dir: 'desc' });
   }, [activeTab]);
@@ -310,12 +316,13 @@ function KnowledgeBaseContent() {
   // Reset pagination on filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [procedureCategory, woComplianceFilter, woIncidentFilter, woProcedureFilter, facilityTierFilter, workerPlatformFilter, searchQuery]);
+  }, [procedureCategory, woComplianceFilter, woIncidentFilter, woProcedureFilter, facilityTierFilter, workerPlatformFilter, regulationStatusFilter, searchQuery]);
 
   // Computed values
   const categories = useMemo(() => Array.from(new Set(procedures.map(p => p.category).filter(Boolean))), [procedures]);
   const platforms = useMemo(() => Array.from(new Set(workers.map(w => w.platform).filter(Boolean))), [workers]);
   const performanceTiers = useMemo(() => Array.from(new Set(facilities.map(f => f.performance_tier).filter(Boolean))), [facilities]);
+  const regulationStatuses = useMemo(() => Array.from(new Set(regulations.map(r => r.status).filter(Boolean))), [regulations]);
 
   const totalIncidents = useMemo(() => workOrders.filter(wo => wo.safety_incident).length, [workOrders]);
   const totalCompliant = useMemo(() => workOrders.filter(wo => wo.compliant).length, [workOrders]);
@@ -353,6 +360,12 @@ function KnowledgeBaseContent() {
         if (query && !(w.worker_name || '').toLowerCase().includes(query) && !(w.worker_id || '').toLowerCase().includes(query)) return false;
         return true;
       });
+    } else if (activeTab === 'regulations') {
+      data = regulations.filter(r => {
+        if (regulationStatusFilter !== 'all' && r.status !== regulationStatusFilter) return false;
+        if (query && !(r.title || '').toLowerCase().includes(query) && !(r.regulation_id || '').toLowerCase().includes(query) && !(r.source || '').toLowerCase().includes(query)) return false;
+        return true;
+      });
     }
 
     // Sort with null safety
@@ -379,7 +392,7 @@ function KnowledgeBaseContent() {
       if (aVal > bVal) return sortConfig.dir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [activeTab, procedures, workOrders, facilities, workers, procedureCategory, woComplianceFilter, woIncidentFilter, woProcedureFilter, facilityTierFilter, workerPlatformFilter, searchQuery, sortConfig]);
+  }, [activeTab, procedures, workOrders, facilities, workers, regulations, procedureCategory, woComplianceFilter, woIncidentFilter, woProcedureFilter, facilityTierFilter, workerPlatformFilter, regulationStatusFilter, searchQuery, sortConfig]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -456,12 +469,13 @@ function KnowledgeBaseContent() {
             variants={staggerContainer}
             initial="initial"
             animate="animate"
-            className="grid grid-cols-2 md:grid-cols-4 gap-4"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
           >
             <StatCard icon={FileText} label="Procedures" value={procedures.length} color="red" />
             <StatCard icon={ClipboardList} label="Work Orders" value={workOrders.length} color="blue" />
             <StatCard icon={Building2} label="Facilities" value={facilities.length} color="green" />
             <StatCard icon={Users} label="Workers" value={workers.length} color="purple" />
+            <StatCard icon={Shield} label="Regulations" value={regulations.length} color="red" />
           </motion.div>
         </div>
       </header>
@@ -522,6 +536,7 @@ function KnowledgeBaseContent() {
               <TabButton active={activeTab === 'work-orders'} onClick={() => setActiveTab('work-orders')} icon={ClipboardList} label="Work Orders" count={workOrders.length} />
               <TabButton active={activeTab === 'facilities'} onClick={() => setActiveTab('facilities')} icon={Building2} label="Facilities" count={facilities.length} />
               <TabButton active={activeTab === 'workers'} onClick={() => setActiveTab('workers')} icon={Users} label="Workers" count={workers.length} />
+              <TabButton active={activeTab === 'regulations'} onClick={() => setActiveTab('regulations')} icon={Shield} label="Regulations" count={regulations.length} />
             </div>
           </div>
 
@@ -593,6 +608,16 @@ function KnowledgeBaseContent() {
               />
             )}
 
+            {activeTab === 'regulations' && (
+              <FilterSelect
+                value={regulationStatusFilter}
+                onChange={setRegulationStatusFilter}
+                options={regulationStatuses.map(s => ({ value: s, label: s, count: regulations.filter(r => r.status === s).length }))}
+                placeholder="All Statuses"
+                icon={Shield}
+              />
+            )}
+
             <div className="ml-auto text-sm text-gray-500">
               {filteredData.length} results
             </div>
@@ -640,6 +665,16 @@ function KnowledgeBaseContent() {
                     <SortHeader label="Work Orders" column="work_order_count" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
                     <SortHeader label="Compliance" column="compliance_rate" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
                     <SortHeader label="Quality" column="avg_quality_score" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
+                  </tr>
+                )}
+                {activeTab === 'regulations' && (
+                  <tr>
+                    <SortHeader label="ID" column="regulation_id" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
+                    <SortHeader label="Title" column="title" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
+                    <SortHeader label="Source" column="source" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
+                    <SortHeader label="Effective Date" column="effective_date" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
+                    <SortHeader label="Priority" column="priority" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
+                    <SortHeader label="Status" column="status" currentSort={sortConfig.column} currentDir={sortConfig.dir} onSort={handleSort} />
                   </tr>
                 )}
               </thead>
@@ -729,6 +764,34 @@ function KnowledgeBaseContent() {
                         <td className="px-4 py-3 font-semibold text-[#1c2b40]">{item.avg_quality_score ? Number(item.avg_quality_score).toFixed(1) : 'N/A'}</td>
                       </tr>
                     ))}
+                    {activeTab === 'regulations' && paginatedData.map((item) => (
+                      <tr
+                        key={item.regulation_id}
+                        onClick={() => handleRowClick(item, 'regulation')}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors group"
+                      >
+                        <td className="px-4 py-3 text-xs font-mono text-gray-500">{item.regulation_id}</td>
+                        <td className="px-4 py-3 font-medium text-[#1c2b40] group-hover:text-[#ff0000] transition-colors">{item.title}</td>
+                        <td className="px-4 py-3 text-xs text-gray-600">{item.source}</td>
+                        <td className="px-4 py-3 text-xs text-gray-600">{item.effective_date ? new Date(item.effective_date).toLocaleDateString() : 'N/A'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                            item.priority === 'critical' ? 'bg-red-100 text-red-700' :
+                            item.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                            item.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>{item.priority}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                            item.status === 'active' ? 'bg-green-100 text-green-700' :
+                            item.status === 'pending_review' ? 'bg-yellow-100 text-yellow-700' :
+                            item.status === 'under_review' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>{item.status}</span>
+                        </td>
+                      </tr>
+                    ))}
                   </>
                 )}
               </tbody>
@@ -785,12 +848,14 @@ function KnowledgeBaseContent() {
                     {selectedItem.type === 'work-order' && `Work Order ${selectedItem.wo_id}`}
                     {selectedItem.type === 'facility' && selectedItem.name}
                     {selectedItem.type === 'worker' && selectedItem.worker_name}
+                    {selectedItem.type === 'regulation' && selectedItem.title}
                   </h3>
                   <p className="text-sm text-white/70">
                     {selectedItem.type === 'procedure' && selectedItem.procedure_id}
                     {selectedItem.type === 'work-order' && selectedItem.procedure_id}
                     {selectedItem.type === 'facility' && selectedItem.facility_id}
                     {selectedItem.type === 'worker' && selectedItem.worker_id}
+                    {selectedItem.type === 'regulation' && selectedItem.regulation_id}
                   </p>
                 </div>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
@@ -868,6 +933,78 @@ function KnowledgeBaseContent() {
                         </p>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {selectedItem.type === 'regulation' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <p className="text-xs text-gray-500 mb-1">Source</p>
+                        <p className="font-semibold text-[#1c2b40]">{selectedItem.source}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <p className="text-xs text-gray-500 mb-1">Effective Date</p>
+                        <p className="font-semibold text-[#1c2b40]">
+                          {selectedItem.effective_date ? new Date(selectedItem.effective_date).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <p className="text-xs text-gray-500 mb-1">Priority</p>
+                        <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
+                          selectedItem.priority === 'critical' ? 'bg-red-100 text-red-700' :
+                          selectedItem.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                          selectedItem.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {selectedItem.priority}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-xs text-gray-500 mb-1">Status</p>
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        selectedItem.status === 'active' ? 'bg-green-100 text-green-700' :
+                        selectedItem.status === 'pending_review' ? 'bg-yellow-100 text-yellow-700' :
+                        selectedItem.status === 'under_review' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {selectedItem.status}
+                      </span>
+                    </div>
+                    {selectedItem.summary && (
+                      <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                        <p className="text-xs text-gray-500 mb-2 font-semibold">Summary</p>
+                        <p className="text-sm text-[#1c2b40]">{selectedItem.summary}</p>
+                      </div>
+                    )}
+                    {selectedItem.key_changes && selectedItem.key_changes.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-[#1c2b40] mb-3">Key Changes ({selectedItem.key_changes.length})</h4>
+                        <div className="space-y-2">
+                          {selectedItem.key_changes.map((change: string, idx: number) => (
+                            <div key={idx} className="bg-yellow-50 rounded-xl p-3 flex gap-3 border border-yellow-100">
+                              <div className="w-6 h-6 rounded-lg bg-[#ff0000] text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                {idx + 1}
+                              </div>
+                              <p className="text-sm text-[#1c2b40]">{change}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selectedItem.affected_procedures && selectedItem.affected_procedures.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-[#1c2b40] mb-3">Affected Procedures ({selectedItem.affected_procedures.length})</h4>
+                        <div className="space-y-2">
+                          {selectedItem.affected_procedures.map((procId: string, idx: number) => (
+                            <div key={idx} className="bg-blue-50 rounded-xl p-3 border border-blue-100">
+                              <p className="font-mono text-sm text-blue-900">{procId}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

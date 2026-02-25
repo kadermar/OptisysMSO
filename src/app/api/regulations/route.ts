@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+// Enable caching for this route
+export const revalidate = 300; // Revalidate every 5 minutes (regulations change less frequently)
+
 // GET /api/regulations - List all regulations
 export async function GET(request: Request) {
   try {
@@ -9,7 +12,11 @@ export async function GET(request: Request) {
     const priority = searchParams.get('priority');
 
     const regulations = await db.getRegulations({ status, priority });
-    return NextResponse.json(regulations);
+    return NextResponse.json(regulations, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching regulations:', error);
     return NextResponse.json(

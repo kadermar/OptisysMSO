@@ -103,6 +103,56 @@ function MSOGovernancePageContent() {
     }
   };
 
+  const handleDeleteProcedure = async (procedureId: string, procedureName: string) => {
+    if (!confirm(`Are you sure you want to delete procedure "${procedureName}"? This action cannot be undone and will delete all associated work orders, deviations, and compliance records.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/procedures/${procedureId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Failed to delete procedure: ${error.error}`);
+        return;
+      }
+
+      // Refresh the procedures list
+      await fetchData();
+      alert('Procedure deleted successfully');
+    } catch (error) {
+      console.error('Error deleting procedure:', error);
+      alert('Failed to delete procedure. Please try again.');
+    }
+  };
+
+  const handleDeleteRegulation = async (regulationId: string, regulationTitle: string) => {
+    if (!confirm(`Are you sure you want to delete regulation "${regulationTitle}"? This action cannot be undone and will remove all associated accepted changes.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/regulations/${regulationId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Failed to delete regulation: ${error.error}`);
+        return;
+      }
+
+      // Refresh the regulations list
+      await fetchData();
+      alert('Regulation deleted successfully');
+    } catch (error) {
+      console.error('Error deleting regulation:', error);
+      alert('Failed to delete regulation. Please try again.');
+    }
+  };
+
   const categories = useMemo(() => {
     const cats = new Set(procedures.map(p => p.category).filter(Boolean));
     return Array.from(cats);
@@ -404,9 +454,7 @@ function MSOGovernancePageContent() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setOpenDropdown(null);
-                                    if (confirm(`Are you sure you want to delete "${proc.name}"?`)) {
-                                      console.log('Delete procedure:', proc.procedure_id);
-                                    }
+                                    handleDeleteProcedure(proc.procedure_id, proc.name);
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-red-600"
                                 >
@@ -506,9 +554,7 @@ function MSOGovernancePageContent() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setOpenDropdown(null);
-                                    if (confirm(`Are you sure you want to delete "${reg.title}"?`)) {
-                                      console.log('Delete regulation:', reg.id);
-                                    }
+                                    handleDeleteRegulation(reg.id, reg.title);
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-red-600"
                                 >

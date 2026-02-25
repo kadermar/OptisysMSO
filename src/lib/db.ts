@@ -345,6 +345,20 @@ export const db = {
     return result.rows[0];
   },
 
+  // Helper function to normalize criticality to match database constraint
+  normalizeCriticality(value: string | null | undefined): string {
+    if (!value) return 'Medium';
+
+    const normalized = value.toLowerCase();
+    switch (normalized) {
+      case 'low': return 'Low';
+      case 'medium': return 'Medium';
+      case 'high': return 'High';
+      case 'critical': return 'Critical';
+      default: return 'Medium';
+    }
+  },
+
   // Create a new procedure version
   async createProcedureVersion(versionData: {
     procedureId: string;
@@ -411,6 +425,9 @@ export const db = {
         stepData = currentStep.rows[0];
       }
 
+      // Normalize criticality to match constraint (Low, Medium, High, Critical)
+      const criticality = this.normalizeCriticality(step.criticality || stepData?.criticality);
+
       await sql`
         INSERT INTO procedure_step_versions (
           version_id, step_id, procedure_id, step_number, step_name,
@@ -424,7 +441,7 @@ export const db = {
           ${step.stepName || stepData?.step_name || ''},
           ${step.stepContent || stepData?.step_content || stepData?.description || ''},
           ${step.typicalDurationMinutes || stepData?.typical_duration_minutes || 0},
-          ${step.criticality || stepData?.criticality || 'Medium'},
+          ${criticality},
           ${step.description || stepData?.description || ''},
           ${step.verificationRequired !== undefined ? step.verificationRequired : stepData?.verification_required || false},
           ${step.changeType},
@@ -432,29 +449,79 @@ export const db = {
         )
       `;
 
-      // 5. Update current step if modified
+      // 5. Update procedure_steps table based on change type
       if (step.changeType === 'modified' && stepData) {
+        // Modified: Update all fields including content
+        const updatedCriticality = this.normalizeCriticality(step.criticality || stepData.criticality);
+
         await sql`
           UPDATE procedure_steps
           SET
             step_name = ${step.stepName || stepData.step_name},
-            step_content = ${step.stepContent || stepData.step_content},
-            description = ${step.description || stepData.description},
+            step_content = ${step.stepContent || stepData.step_content || stepData.description || ''},
+            description = ${step.description || step.stepContent || stepData.description || ''},
             typical_duration_minutes = ${step.typicalDurationMinutes || stepData.typical_duration_minutes},
-            criticality = ${step.criticality || stepData.criticality},
+            criticality = ${updatedCriticality},
             verification_required = ${step.verificationRequired !== undefined ? step.verificationRequired : stepData.verification_required},
             current_version = ${versionData.newVersion},
             last_modified_at = CURRENT_TIMESTAMP,
             last_modified_by = ${versionData.createdBy}
           WHERE step_id = ${step.stepId}
         `;
+      } else if (step.changeType === 'unchanged' && stepData) {
+        // Unchanged: Just update version number and timestamp
+        await sql`
+          UPDATE procedure_steps
+          SET
+            current_version = ${versionData.newVersion},
+            last_modified_at = CURRENT_TIMESTAMP
+          WHERE step_id = ${step.stepId}
+        `;
+      } else if (step.changeType === 'added') {
+        // Added: Insert new step
+        const addedCriticality = this.normalizeCriticality(step.criticality);
+
+        await sql`
+          INSERT INTO procedure_steps (
+            step_id,
+            procedure_id,
+            step_number,
+            step_name,
+            step_content,
+            description,
+            typical_duration_minutes,
+            criticality,
+            verification_required,
+            current_version,
+            created_at
+          ) VALUES (
+            ${step.stepId},
+            ${versionData.procedureId},
+            ${stepData?.step_number || 0},
+            ${step.stepName || ''},
+            ${step.stepContent || step.description || ''},
+            ${step.description || step.stepContent || ''},
+            ${step.typicalDurationMinutes || 0},
+            ${addedCriticality},
+            ${step.verificationRequired || false},
+            ${versionData.newVersion},
+            CURRENT_TIMESTAMP
+          )
+        `;
+      } else if (step.changeType === 'removed') {
+        // Removed: Delete the step
+        await sql`
+          DELETE FROM procedure_steps
+          WHERE step_id = ${step.stepId}
+        `;
       }
     }
 
-    // 6. Update procedures table
+    // 6. Update procedures table (update both version and current_version to keep in sync)
     await sql`
       UPDATE procedures
       SET
+        version = ${versionData.newVersion},
         current_version = ${versionData.newVersion},
         version_count = version_count + 1,
         last_modified_by = ${versionData.createdBy}
@@ -625,41 +692,204 @@ export const db = {
     severity?: string;
     status?: string;
   }) {
-    // Build WHERE conditions
-    const conditions = ['cs.flagged_for_review = TRUE'];
-    const params: any[] = [];
-
-    if (filters?.procedureId) {
-      conditions.push(`cs.procedure_id = $${params.length + 1}`);
-      params.push(filters.procedureId);
+    // Build query based on filters
+    if (filters?.status && filters?.procedureId && filters?.severity) {
+      // All three filters
+      const result = await sql`
+        SELECT
+          cs.*,
+          p.name as procedure_name,
+          ps.step_name,
+          ps.step_number,
+          mo.name as reviewer_name
+        FROM ci_signals cs
+        INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+        LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
+        LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
+        WHERE cs.status = ${filters.status}
+          AND cs.procedure_id = ${filters.procedureId}
+          AND cs.severity = ${filters.severity}
+        ORDER BY
+          CASE cs.severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          cs.detected_at DESC
+      `;
+      return result.rows;
+    } else if (filters?.status && filters?.procedureId) {
+      // Status and procedure filters
+      const result = await sql`
+        SELECT
+          cs.*,
+          p.name as procedure_name,
+          ps.step_name,
+          ps.step_number,
+          mo.name as reviewer_name
+        FROM ci_signals cs
+        INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+        LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
+        LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
+        WHERE cs.status = ${filters.status}
+          AND cs.procedure_id = ${filters.procedureId}
+        ORDER BY
+          CASE cs.severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          cs.detected_at DESC
+      `;
+      return result.rows;
+    } else if (filters?.status && filters?.severity) {
+      // Status and severity filters
+      const result = await sql`
+        SELECT
+          cs.*,
+          p.name as procedure_name,
+          ps.step_name,
+          ps.step_number,
+          mo.name as reviewer_name
+        FROM ci_signals cs
+        INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+        LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
+        LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
+        WHERE cs.status = ${filters.status}
+          AND cs.severity = ${filters.severity}
+        ORDER BY
+          CASE cs.severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          cs.detected_at DESC
+      `;
+      return result.rows;
+    } else if (filters?.procedureId && filters?.severity) {
+      // Procedure and severity filters
+      const result = await sql`
+        SELECT
+          cs.*,
+          p.name as procedure_name,
+          ps.step_name,
+          ps.step_number,
+          mo.name as reviewer_name
+        FROM ci_signals cs
+        INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+        LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
+        LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
+        WHERE cs.procedure_id = ${filters.procedureId}
+          AND cs.severity = ${filters.severity}
+        ORDER BY
+          CASE cs.severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          cs.detected_at DESC
+      `;
+      return result.rows;
+    } else if (filters?.status) {
+      // Status filter only
+      const result = await sql`
+        SELECT
+          cs.*,
+          p.name as procedure_name,
+          ps.step_name,
+          ps.step_number,
+          mo.name as reviewer_name
+        FROM ci_signals cs
+        INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+        LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
+        LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
+        WHERE cs.status = ${filters.status}
+        ORDER BY
+          CASE cs.severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          cs.detected_at DESC
+      `;
+      return result.rows;
+    } else if (filters?.procedureId) {
+      // Procedure filter only
+      const result = await sql`
+        SELECT
+          cs.*,
+          p.name as procedure_name,
+          ps.step_name,
+          ps.step_number,
+          mo.name as reviewer_name
+        FROM ci_signals cs
+        INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+        LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
+        LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
+        WHERE cs.procedure_id = ${filters.procedureId}
+        ORDER BY
+          CASE cs.severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          cs.detected_at DESC
+      `;
+      return result.rows;
+    } else if (filters?.severity) {
+      // Severity filter only
+      const result = await sql`
+        SELECT
+          cs.*,
+          p.name as procedure_name,
+          ps.step_name,
+          ps.step_number,
+          mo.name as reviewer_name
+        FROM ci_signals cs
+        INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+        LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
+        LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
+        WHERE cs.severity = ${filters.severity}
+        ORDER BY
+          CASE cs.severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          cs.detected_at DESC
+      `;
+      return result.rows;
+    } else {
+      // No filters - return all signals
+      const result = await sql`
+        SELECT
+          cs.*,
+          p.name as procedure_name,
+          ps.step_name,
+          ps.step_number,
+          mo.name as reviewer_name
+        FROM ci_signals cs
+        INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+        LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
+        LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
+        ORDER BY
+          CASE cs.severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'low' THEN 4
+          END,
+          cs.detected_at DESC
+      `;
+      return result.rows;
     }
-    if (filters?.severity) {
-      conditions.push(`cs.severity = $${params.length + 1}`);
-      params.push(filters.severity);
-    }
-    if (filters?.status) {
-      conditions.push(`cs.status = $${params.length + 1}`);
-      params.push(filters.status);
-    }
-
-    const whereClause = conditions.join(' AND ');
-
-    const result = await sql.query(`
-      SELECT
-        cs.*,
-        p.name as procedure_name,
-        ps.step_name,
-        ps.step_number,
-        mo.name as reviewer_name
-      FROM ci_signals cs
-      INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
-      LEFT JOIN procedure_steps ps ON cs.step_id = ps.step_id
-      LEFT JOIN ms_owners mo ON cs.reviewed_by = mo.ms_owner_id
-      WHERE ${whereClause}
-      ORDER BY cs.severity DESC, cs.detected_at DESC
-    `, params);
-
-    return result.rows;
   },
 
   // Get CI signal by ID
@@ -994,6 +1224,17 @@ export const db = {
     return result.rows.length > 0;
   },
 
+  // Delete CI signal
+  async deleteCISignal(signalId: string) {
+    const result = await sql`
+      DELETE FROM ci_signals
+      WHERE signal_id = ${signalId}
+      RETURNING signal_id
+    `;
+
+    return result.rows.length > 0;
+  },
+
   // Delete procedure
   async deleteProcedure(procedureId: string) {
     // Note: This will cascade delete related records based on foreign key constraints
@@ -1005,5 +1246,211 @@ export const db = {
     `;
 
     return result.rows.length > 0;
+  },
+
+  // ===== CI Signal Action Helper Functions =====
+
+  // Cache parsed recommendations to avoid re-parsing
+  async cacheParsedRecommendation(
+    signalId: string,
+    parsedData: {
+      actionableItems: any[];
+      suggestedStepChanges?: any[];
+      confidence: number;
+    }
+  ): Promise<void> {
+    await sql`
+      UPDATE ci_signals
+      SET
+        parsed_recommendations = ${JSON.stringify(parsedData.actionableItems)},
+        suggested_step_changes = ${JSON.stringify(parsedData.suggestedStepChanges || [])},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE signal_id = ${signalId}
+    `;
+  },
+
+  // Get parsed recommendations from cache
+  async getParsedRecommendations(signalId: string): Promise<any> {
+    const result = await sql`
+      SELECT parsed_recommendations, suggested_step_changes
+      FROM ci_signals
+      WHERE signal_id = ${signalId}
+    `;
+    return result.rows[0];
+  },
+
+  // Apply accepted recommendation and create procedure version
+  async applyAcceptedRecommendation(
+    signalId: string,
+    userId: string,
+    affectedSteps: Array<{
+      stepId: string;
+      proposedContent: string;
+      changeReason: string;
+    }>
+  ): Promise<string> {
+    // Get signal details
+    const signalResult = await sql`
+      SELECT cs.*, p.current_version
+      FROM ci_signals cs
+      INNER JOIN procedures p ON cs.procedure_id = p.procedure_id
+      WHERE cs.signal_id = ${signalId}
+    `;
+
+    if (signalResult.rows.length === 0) {
+      throw new Error(`CI signal ${signalId} not found`);
+    }
+
+    const signal = signalResult.rows[0];
+
+    // Calculate next version
+    const currentVersion = signal.current_version || '1.0';
+    const [major, minor] = currentVersion.split('.').map(Number);
+    const newVersion = `${major}.${minor + 1}`;
+
+    // Create procedure version with modified steps
+    const versionId = await this.createProcedureVersion({
+      procedureId: signal.procedure_id,
+      newVersion,
+      createdBy: userId,
+      changeReason: `Addressing CI Signal ${signalId}: ${signal.title}`,
+      ciSignalId: signalId,
+      modifiedSteps: affectedSteps.map(s => ({
+        stepId: s.stepId,
+        stepContent: s.proposedContent,
+        changeType: 'modified' as const
+      }))
+    });
+
+    // Update signal status to implemented
+    await sql`
+      UPDATE ci_signals
+      SET
+        status = 'implemented',
+        implemented_at = CURRENT_TIMESTAMP,
+        implemented_in_version = ${newVersion},
+        reviewed_by = ${userId},
+        reviewed_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE signal_id = ${signalId}
+    `;
+
+    return versionId;
+  },
+
+  // Reject CI signal with reason
+  async rejectCISignal(
+    signalId: string,
+    userId: string,
+    reason: string
+  ): Promise<void> {
+    await sql`
+      UPDATE ci_signals
+      SET
+        status = 'rejected',
+        reviewed_by = ${userId},
+        reviewed_at = CURRENT_TIMESTAMP,
+        review_notes = ${reason},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE signal_id = ${signalId}
+    `;
+  },
+
+  // Get CI signal impact metrics (before/after comparison)
+  async getCISignalImpactMetrics(signalId: string): Promise<any> {
+    // Get signal details with version info
+    const signal = await sql`
+      SELECT
+        cs.signal_id,
+        cs.procedure_id,
+        cs.implemented_at,
+        cs.implemented_in_version,
+        pv.version as before_version
+      FROM ci_signals cs
+      INNER JOIN procedure_versions pv
+        ON pv.procedure_id = cs.procedure_id
+        AND pv.created_at < cs.implemented_at
+        AND pv.is_current = FALSE
+      WHERE cs.signal_id = ${signalId}
+        AND cs.status = 'implemented'
+      ORDER BY pv.created_at DESC
+      LIMIT 1
+    `;
+
+    if (signal.rows.length === 0) {
+      return null;
+    }
+
+    const { procedure_id, implemented_at, implemented_in_version, before_version } = signal.rows[0];
+
+    // Calculate before metrics (90 days before implementation)
+    const beforeStart = new Date(implemented_at);
+    beforeStart.setDate(beforeStart.getDate() - 90);
+    const beforeMetrics = await this.getProcedureMetricsByVersion(
+      procedure_id,
+      before_version,
+      beforeStart.toISOString(),
+      implemented_at
+    );
+
+    // Calculate after metrics (90 days after implementation, or until now)
+    const afterStart = new Date(implemented_at);
+    const afterEnd = new Date();
+    const maxAfterEnd = new Date(implemented_at);
+    maxAfterEnd.setDate(maxAfterEnd.getDate() + 90);
+
+    const afterMetrics = await this.getProcedureMetricsByVersion(
+      procedure_id,
+      implemented_in_version,
+      afterStart.toISOString(),
+      (afterEnd < maxAfterEnd ? afterEnd : maxAfterEnd).toISOString()
+    );
+
+    // Calculate deltas
+    return {
+      ...signal.rows[0],
+      before_metrics: beforeMetrics,
+      after_metrics: afterMetrics,
+      deltas: {
+        compliance_rate: (afterMetrics.compliance_rate || 0) - (beforeMetrics.compliance_rate || 0),
+        incident_rate: (beforeMetrics.incident_rate || 0) - (afterMetrics.incident_rate || 0), // Reduction is positive
+        avg_quality_score: (afterMetrics.avg_quality_score || 0) - (beforeMetrics.avg_quality_score || 0),
+        rework_rate: (beforeMetrics.rework_rate || 0) - (afterMetrics.rework_rate || 0),
+        avg_duration_minutes: (beforeMetrics.avg_duration_minutes || 0) - (afterMetrics.avg_duration_minutes || 0)
+      }
+    };
+  },
+
+  // Helper function to get metrics for specific version and date range
+  async getProcedureMetricsByVersion(
+    procedureId: string,
+    version: string,
+    startDate: string,
+    endDate: string
+  ): Promise<any> {
+    const result = await sql`
+      SELECT
+        COUNT(*)::int as total_work_orders,
+        AVG(CASE WHEN compliance_status = 'compliant' THEN 100 ELSE 0 END)::numeric(5,2) as compliance_rate,
+        AVG(CASE WHEN incident_reported THEN 100 ELSE 0 END)::numeric(5,2) as incident_rate,
+        AVG(quality_score)::numeric(5,2) as avg_quality_score,
+        AVG(CASE WHEN rework_required THEN 100 ELSE 0 END)::numeric(5,2) as rework_rate,
+        AVG(actual_duration_minutes)::numeric(10,2) as avg_duration_minutes
+      FROM work_orders
+      WHERE procedure_id = ${procedureId}
+        AND procedure_version = ${version}
+        AND completed_at >= ${startDate}
+        AND completed_at <= ${endDate}
+        AND status = 'completed'
+    `;
+
+    return result.rows[0] || {
+      total_work_orders: 0,
+      compliance_rate: 0,
+      incident_rate: 0,
+      avg_quality_score: 0,
+      rework_rate: 0,
+      avg_duration_minutes: 0
+    };
   },
 };

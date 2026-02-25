@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+// Disable caching for this route to ensure fresh data
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+
 // GET /api/ci-signals?procedureId=PROC-104&severity=high&status=open
 export async function GET(request: Request) {
   try {

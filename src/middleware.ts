@@ -37,7 +37,12 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  // Add performance and security headers
+  const response = NextResponse.next();
+  response.headers.set('X-DNS-Prefetch-Control', 'on');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+
+  return response;
 }
 
 export const config = {

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -19,10 +20,31 @@ import {
   Loader2,
   RefreshCw,
 } from 'lucide-react';
-import { ExecutiveSummary } from '@/components/dashboard/ExecutiveSummary';
-import { CorrelationScatterPlot } from '@/components/compliance/CorrelationScatterPlot';
-import { PredictiveAnalytics } from '@/components/dashboard/PredictiveAnalytics';
 import { useTourSafe } from '@/components/tour';
+
+// Dynamically import heavy components for better initial page load
+const ExecutiveSummary = dynamic(
+  () => import('@/components/dashboard/ExecutiveSummary').then(mod => ({ default: mod.ExecutiveSummary })),
+  {
+    loading: () => <div className="h-64 bg-white rounded-xl shadow-sm animate-pulse" />,
+  }
+);
+
+const CorrelationScatterPlot = dynamic(
+  () => import('@/components/compliance/CorrelationScatterPlot').then(mod => ({ default: mod.CorrelationScatterPlot })),
+  {
+    loading: () => <div className="h-96 bg-white rounded-xl shadow-sm animate-pulse" />,
+    ssr: false
+  }
+);
+
+const PredictiveAnalytics = dynamic(
+  () => import('@/components/dashboard/PredictiveAnalytics').then(mod => ({ default: mod.PredictiveAnalytics })),
+  {
+    loading: () => <div className="h-96 bg-white rounded-xl shadow-sm animate-pulse" />,
+    ssr: false
+  }
+);
 
 // Animation variants
 const fadeInUp = {

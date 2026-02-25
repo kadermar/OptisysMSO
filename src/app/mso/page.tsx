@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import {
   AlertTriangle,
   FileText,
@@ -19,8 +20,23 @@ import {
   Activity
 } from 'lucide-react';
 import Link from 'next/link';
-import { PredictiveAnalytics } from '@/components/dashboard/PredictiveAnalytics';
-import { CorrelationScatterPlot } from '@/components/compliance/CorrelationScatterPlot';
+
+// Dynamically import heavy chart components for better performance
+const PredictiveAnalytics = dynamic(
+  () => import('@/components/dashboard/PredictiveAnalytics').then(mod => ({ default: mod.PredictiveAnalytics })),
+  {
+    loading: () => <div className="h-96 bg-gray-100 rounded-xl animate-pulse" />,
+    ssr: false
+  }
+);
+
+const CorrelationScatterPlot = dynamic(
+  () => import('@/components/compliance/CorrelationScatterPlot').then(mod => ({ default: mod.CorrelationScatterPlot })),
+  {
+    loading: () => <div className="h-96 bg-gray-100 rounded-xl animate-pulse" />,
+    ssr: false
+  }
+);
 
 interface PendingItem {
   id: string;
@@ -87,12 +103,21 @@ export default function MSODashboard() {
 
   const fetchPendingItems = async () => {
     try {
-      // Fetch CI signals
-      const signalsRes = await fetch('/api/ci-signals?status=open');
-      const signals = signalsRes.ok ? await signalsRes.json() : [];
+      // Fetch all open CI signals (status = open or flagged_for_review)
+      const signalsRes = await fetch('/api/ci-signals');
+      const allSignals = signalsRes.ok ? await signalsRes.json() : [];
+      // Filter to only show open and flagged signals (exclude rejected, implemented, dismissed)
+      const signals = allSignals.filter((s: any) =>
+        ['open', 'flagged_for_review', 'under_review'].includes(s.status)
+      );
+
+      // Fetch pending regulations (status = pending_review)
+      const regulationsRes = await fetch('/api/regulations?status=pending_review');
+      const regulations = regulationsRes.ok ? await regulationsRes.json() : [];
 
       // Transform to pending items
       const items: PendingItem[] = [
+        // CI Signals
         ...signals.map((signal: any) => ({
           id: signal.signal_id,
           type: 'ci_signal' as const,
@@ -102,29 +127,30 @@ export default function MSODashboard() {
           procedureId: signal.procedure_id,
           createdAt: signal.detected_at,
         })),
-        // Mock regulation updates
-        {
-          id: 'REG-2024-001',
+        // Regulations from database
+        ...regulations.map((reg: any) => ({
+          id: reg.regulation_id,
           type: 'regulation' as const,
-          title: 'Updated OSHA Safety Requirements',
-          description: 'New lockout/tagout procedures required for mechanical maintenance',
-          priority: 'high' as const,
-          procedureId: 'MNT-202',
-          createdAt: new Date().toISOString(),
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        },
+          title: reg.title,
+          description: reg.summary,
+          priority: reg.priority as any,
+          procedureId: reg.affected_procedures?.[0] || undefined, // Show first affected procedure
+          createdAt: reg.created_at,
+          dueDate: reg.effective_date,
+        })),
+        // Mock quarterly review (can be removed if you have a reviews table)
         {
-          id: 'REG-2024-002',
-          type: 'regulation' as const,
-          title: 'Environmental Reporting Standards Update',
-          description: 'ISO 14001:2024 compliance requires additional documentation steps',
+          id: 'REV-2024-003',
+          type: 'review' as const,
+          title: 'Quarterly Procedure Review',
+          description: 'Scheduled review of high-risk procedures for Q1 2025 performance assessment',
           priority: 'medium' as const,
-          procedureId: 'OPS-004',
           createdAt: new Date().toISOString(),
-          dueDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         },
       ];
 
+      // Sort by priority: critical > high > medium > low
       setPendingItems(items.sort((a, b) => {
         const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
         return priorityOrder[a.priority] - priorityOrder[b.priority];
@@ -330,15 +356,15 @@ export default function MSODashboard() {
         </motion.div>
 
         {/* Statistical Analysis and Summary Cards Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Statistical Analysis - 66% */}
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+          {/* Statistical Analysis - 60% */}
+          <div className="lg:col-span-3">
             {correlationData.length > 0 ? (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
-                className="h-full"
+                className="h-full pb-6"
               >
                 <CorrelationScatterPlot data={correlationData} />
               </motion.div>
@@ -352,12 +378,24 @@ export default function MSODashboard() {
             )}
           </div>
 
-          {/* Pending Action Items - 33% */}
-          <div className="lg:col-span-1">
+          {/* Pending Action Items - 40% */}
+          <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden h-full flex flex-col">
               <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                <h2 className="text-lg font-bold text-[#1c2b40]">Pending Action Items</h2>
-                <p className="text-sm text-gray-600">Items requiring your review and action</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-[#1c2b40]">Pending Action Items</h2>
+                    <p className="text-sm text-gray-600">Items requiring your review and action</p>
+                  </div>
+                  {pendingItems.length > 3 && (
+                    <Link
+                      href="/mso/signals"
+                      className="px-4 py-2 bg-gradient-to-r from-[#ff0000] to-[#cc0000] text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all whitespace-nowrap"
+                    >
+                      View All
+                    </Link>
+                  )}
+                </div>
               </div>
 
               <div className="divide-y divide-gray-200 overflow-y-auto flex-1">
@@ -368,9 +406,9 @@ export default function MSODashboard() {
                 <p className="text-sm text-gray-500 mt-1">No pending items requiring action</p>
               </div>
             ) : (
-              pendingItems.map((item, index) => (
+              pendingItems.slice(0, 3).map((item, index) => (
                 <motion.div
-                  key={item.id}
+                  key={`${item.type}-${item.id || index}`}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
@@ -400,14 +438,13 @@ export default function MSODashboard() {
                       </div>
                       <h3 className="text-base font-bold text-[#1c2b40] mb-1">{item.title}</h3>
                       <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>Created: {new Date(item.createdAt).toLocaleDateString()}</span>
-                        {item.dueDate && (
+                      {item.dueDate && (
+                        <div className="flex items-center gap-2 text-xs">
                           <span className="text-orange-600 font-medium">
                             Due: {new Date(item.dueDate).toLocaleDateString()}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action Button */}

@@ -59,3 +59,43 @@ export async function PATCH(
     );
   }
 }
+
+// DELETE /api/ci-signals/[id] - Delete a CI signal
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    // Check if signal exists
+    const signal = await db.getCISignal(id);
+    if (!signal) {
+      return NextResponse.json(
+        { error: 'Signal not found' },
+        { status: 404 }
+      );
+    }
+
+    // Delete the signal
+    const deleted = await db.deleteCISignal(id);
+
+    if (!deleted) {
+      return NextResponse.json(
+        { error: 'Failed to delete signal' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Signal deleted successfully'
+    });
+  } catch (error: any) {
+    console.error('Error deleting signal:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete signal', details: error.message },
+      { status: 500 }
+    );
+  }
+}

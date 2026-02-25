@@ -145,7 +145,7 @@ export default function BusinessValuePage() {
           try {
             const aiRes = await fetch('/api/ai/assistant', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_API_KEY || '' },
               body: JSON.stringify({
                 message: `Generate a single powerful headline (max 25 words) about this compliance cost data: Total impact $${(data.totalProfitImpact / 1000000).toFixed(2)}M, ${data.complianceRate}% compliance, potential savings $${(data.potentialSavings / 1000).toFixed(0)}K. Focus on the business opportunity.`,
               }),

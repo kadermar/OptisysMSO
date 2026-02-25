@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Building2,
   Users,
+  Shield,
   Search,
   Filter,
   ChevronDown,
@@ -109,16 +110,18 @@ function ComplianceBadge({ rate }: { rate: number }) {
 
 export default function MSOKnowledgeBasePage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'procedures' | 'work-orders' | 'facilities' | 'workers'>('procedures');
+  const [activeTab, setActiveTab] = useState<'procedures' | 'work-orders' | 'facilities' | 'workers' | 'regulations'>('procedures');
   const [procedures, setProcedures] = useState<any[]>([]);
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [facilities, setFacilities] = useState<any[]>([]);
   const [workers, setWorkers] = useState<any[]>([]);
+  const [regulations, setRegulations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [regulationStatusFilter, setRegulationStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchData();
@@ -126,17 +129,19 @@ export default function MSOKnowledgeBasePage() {
 
   const fetchData = async () => {
     try {
-      const [procRes, woRes, facRes, workersRes] = await Promise.all([
+      const [procRes, woRes, facRes, workersRes, regulationsRes] = await Promise.all([
         fetch('/api/dashboard/procedures'),
         fetch('/api/dashboard/work-orders'),
         fetch('/api/dashboard/facilities'),
         fetch('/api/dashboard/workers'),
+        fetch('/api/regulations'),
       ]);
 
       if (procRes.ok) setProcedures(await procRes.json());
       if (woRes.ok) setWorkOrders(await woRes.json());
       if (facRes.ok) setFacilities(await facRes.json());
       if (workersRes.ok) setWorkers(await workersRes.json());
+      if (regulationsRes.ok) setRegulations(await regulationsRes.json());
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -158,6 +163,11 @@ export default function MSOKnowledgeBasePage() {
     const p = new Set(workers.map(w => w.platform).filter(Boolean));
     return Array.from(p);
   }, [workers]);
+
+  const regulationStatuses = useMemo(() => {
+    const statuses = new Set(regulations.map(r => r.status).filter(Boolean));
+    return ['all', ...Array.from(statuses)];
+  }, [regulations]);
 
   const filteredProcedures = useMemo(() => {
     return procedures.filter(p => {
@@ -198,12 +208,24 @@ export default function MSOKnowledgeBasePage() {
     });
   }, [workers, searchQuery, platformFilter]);
 
+  const filteredRegulations = useMemo(() => {
+    return regulations.filter(r => {
+      const matchesSearch = !searchQuery ||
+        r.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.source?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = regulationStatusFilter === 'all' || r.status === regulationStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [regulations, searchQuery, regulationStatusFilter]);
+
   const stats = useMemo(() => ({
     totalProcedures: procedures.length,
     activeWorkOrders: workOrders.filter(w => w.status === 'in_progress' || !w.status).length,
     totalFacilities: facilities.length,
     totalWorkers: workers.length,
-  }), [procedures, workOrders, facilities, workers]);
+    totalRegulations: regulations.length,
+  }), [procedures, workOrders, facilities, workers, regulations]);
 
   // Reset filters when tab changes
   useEffect(() => {
@@ -211,6 +233,7 @@ export default function MSOKnowledgeBasePage() {
     setCategoryFilter('all');
     setTierFilter('all');
     setPlatformFilter('all');
+    setRegulationStatusFilter('all');
   }, [activeTab]);
 
   if (loading) {
@@ -245,12 +268,13 @@ export default function MSOKnowledgeBasePage() {
             variants={staggerContainer}
             initial="initial"
             animate="animate"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-6"
           >
             <StatCard icon={FileText} label="Total Procedures" value={stats.totalProcedures} color="blue" />
             <StatCard icon={ClipboardList} label="Work Orders" value={stats.activeWorkOrders} color="green" />
             <StatCard icon={Building2} label="Facilities" value={stats.totalFacilities} color="amber" />
             <StatCard icon={Users} label="Personnel" value={stats.totalWorkers} color="red" />
+            <StatCard icon={Shield} label="Regulations" value={stats.totalRegulations} color="red" />
           </motion.div>
         </div>
       </div>
@@ -288,6 +312,13 @@ export default function MSOKnowledgeBasePage() {
                 icon={Users}
                 label="Personnel"
                 count={filteredWorkers.length}
+              />
+              <TabButton
+                active={activeTab === 'regulations'}
+                onClick={() => setActiveTab('regulations')}
+                icon={Shield}
+                label="Regulations"
+                count={filteredRegulations.length}
               />
             </div>
           </div>
@@ -351,6 +382,24 @@ export default function MSOKnowledgeBasePage() {
                     <option value="all">All Platforms</option>
                     {platforms.map(platform => (
                       <option key={platform} value={platform}>{platform}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                </div>
+              )}
+
+              {activeTab === 'regulations' && regulationStatuses.length > 1 && (
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <select
+                    value={regulationStatusFilter}
+                    onChange={(e) => setRegulationStatusFilter(e.target.value)}
+                    className="pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-[#ff0000] focus:ring-2 focus:ring-red-100 appearance-none bg-white"
+                  >
+                    {regulationStatuses.map(status => (
+                      <option key={status} value={status}>
+                        {status === 'all' ? 'All Statuses' : status.replace('_', ' ')}
+                      </option>
                     ))}
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
@@ -578,6 +627,66 @@ export default function MSOKnowledgeBasePage() {
                     <div className="text-center py-12">
                       <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-600 font-medium">No personnel found</p>
+                      <p className="text-sm text-gray-500 mt-1">Try adjusting your search criteria</p>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* Regulations Tab */}
+              {activeTab === 'regulations' && (
+                <motion.div
+                  key="regulations"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="space-y-3"
+                >
+                  {filteredRegulations.map((reg) => (
+                    <motion.div
+                      key={reg.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-200 hover:shadow-lg transition-all cursor-pointer"
+                      onClick={() => router.push(`/mso/regulations/${encodeURIComponent(reg.id)}`)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shrink-0">
+                          <Shield className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-[#1c2b40] mb-2">{reg.title}</h3>
+                          <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                            <span key="id" className="font-mono text-xs">{reg.id}</span>
+                            <span key="dot1">•</span>
+                            <span key="source">{reg.source}</span>
+                            {reg.effectiveDate && (
+                              <React.Fragment key="date">
+                                <span>•</span>
+                                <span>Effective: {new Date(reg.effectiveDate).toLocaleDateString()}</span>
+                              </React.Fragment>
+                            )}
+                          </div>
+                          {reg.summary && (
+                            <p className="text-sm text-gray-600 line-clamp-2">{reg.summary}</p>
+                          )}
+                          {reg.affectedProcedures && reg.affectedProcedures.length > 0 && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <FileText className="w-4 h-4 text-gray-400" />
+                              <span className="text-xs text-gray-500">
+                                {reg.affectedProcedures.length} procedure{reg.affectedProcedures.length !== 1 ? 's' : ''} affected
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-gray-400" />
+                      </div>
+                    </motion.div>
+                  ))}
+                  {filteredRegulations.length === 0 && (
+                    <div className="text-center py-12">
+                      <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600 font-medium">No regulations found</p>
                       <p className="text-sm text-gray-500 mt-1">Try adjusting your search criteria</p>
                     </div>
                   )}

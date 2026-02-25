@@ -37,11 +37,12 @@ export function AIAssistantPopup() {
 
     try {
       // Fetch dashboard data for context
-      const [proceduresRes, facilitiesRes, workersRes, summaryRes] = await Promise.all([
+      const [proceduresRes, facilitiesRes, workersRes, summaryRes, ciSignalsRes] = await Promise.all([
         fetch('/api/dashboard/procedures'),
         fetch('/api/dashboard/facilities'),
         fetch('/api/dashboard/workers'),
         fetch('/api/dashboard/summary'),
+        fetch('/api/ci-signals?status=open'),
       ]);
 
       const dashboardData = {
@@ -49,11 +50,15 @@ export function AIAssistantPopup() {
         facilities: await facilitiesRes.json(),
         workers: await workersRes.json(),
         summary: await summaryRes.json(),
+        ciSignals: await ciSignalsRes.json(),
       };
 
       const response = await fetch('/api/ai/assistant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_API_KEY || '',
+        },
         body: JSON.stringify({
           question: userMessage,
           dashboardData,

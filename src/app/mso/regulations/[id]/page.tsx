@@ -57,16 +57,28 @@ export default function RegulationDetailPage() {
   const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
-    fetchRegulationDetail();
+    if (params.id) {
+      fetchRegulationDetail();
+    }
   }, [params.id]);
 
   const fetchRegulationDetail = async () => {
     try {
+      // Check if params.id exists
+      if (!params.id) {
+        console.error('No regulation ID provided');
+        setLoading(false);
+        return;
+      }
+
+      // Decode the regulation ID in case it was URL encoded
+      const regulationId = decodeURIComponent(params.id as string);
+
       // Fetch regulation from database
-      const regRes = await fetch(`/api/regulations/${params.id}`);
+      const regRes = await fetch(`/api/regulations/${encodeURIComponent(regulationId)}`);
 
       if (!regRes.ok) {
-        console.error('Failed to fetch regulation:', regRes.status);
+        console.error('Failed to fetch regulation:', regRes.status, 'ID:', regulationId);
         setLoading(false);
         return;
       }
@@ -82,172 +94,54 @@ export default function RegulationDetailPage() {
         })
       );
 
-      // Determine regulation type from source to apply appropriate changes
-      const regulationSource = regulationData.source?.toLowerCase() || '';
-      const isOSHA = regulationSource.includes('osha');
-      const isISO9001 = regulationSource.includes('iso 9001') || regulationSource.includes('iso9001');
-      const isISO14001 = regulationSource.includes('iso 14001') || regulationSource.includes('iso14001');
-
       // Fetch previously accepted changes for this regulation
       const acceptedChangesRes = await fetch(`/api/regulations/accepted-changes?regulationId=${params.id}`);
       const acceptedChangesData = acceptedChangesRes.ok ? await acceptedChangesRes.json() : [];
 
       // Create a Set of accepted change keys for quick lookup
       const acceptedChangeKeys = new Set(
-        acceptedChangesData.map((ac: any) => `${ac.procedure_id}:${ac.step_id}:${ac.change_type}`)
+        acceptedChangesData.map((ac: any) => `${ac.procedure_id}:${ac.step_id}`)
       );
 
-      // Determine change type for this regulation
-      const changeType = isOSHA ? 'osha_compliance' :
-                        isISO9001 ? 'iso9001_compliance' :
-                        isISO14001 ? 'iso14001_compliance' :
-                        'general_compliance';
+      // Generate AI-powered proposed changes based on actual regulation content
+      let proposedChanges = [];
+      try {
+        const changesRes = await fetch('/api/regulations/generate-changes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            regulation: regulationData,
+            procedures: proceduresWithSteps
+          })
+        });
 
-      // Generate proposed changes based on actual procedure content
-      const proposedChanges = proceduresWithSteps.map((proc: any) => {
-        const steps = proc.steps || [];
-        const changes = [];
+        if (changesRes.ok) {
+          const changesData = await changesRes.json();
+          proposedChanges = changesData.proposedChanges || [];
 
-        if (isOSHA) {
-          // OSHA Safety - focus on verification steps
-          const relevantSteps = steps.filter((s: any) =>
-            s.description?.toLowerCase().includes('verify') ||
-            s.description?.toLowerCase().includes('check') ||
-            s.description?.toLowerCase().includes('inspect') ||
-            s.description?.toLowerCase().includes('complete') ||
-            s.step_number >= steps.length - 2 // Last 2 steps
-          ).slice(0, 2); // Max 2 changes per procedure
-
-          relevantSteps.forEach((step: any) => {
-            // Check if this change was already accepted
-            const changeKey = `${proc.procedure_id}:${step.step_id}:${changeType}`;
-            const isAlreadyImplemented = acceptedChangeKeys.has(changeKey);
-
-            changes.push({
-              stepId: step.step_id,
-              stepNumber: step.step_number,
-              currentText: step.description || `Step ${step.step_number}: ${step.step_name}`,
-              proposedText: `${step.description || step.step_name}\n\nADDED FOR OSHA COMPLIANCE:\n• Have a second qualified person verify completion of this step\n• Document verification with both signatures and timestamp\n• Confirm all safety devices and guards are properly in place\n• Maintain verification records for minimum 3 years`,
-              reason: 'OSHA 1910.147(c)(4)(i)-(iii) requires two-person verification with mandatory documentation and 3-year retention for safety-critical procedures.',
-              status: isAlreadyImplemented ? ('implemented' as const) : ('pending' as const)
-            });
-          });
-        } else if (isISO9001) {
-          // ISO 9001 Quality - focus on quality checks and documentation
-          const relevantSteps = steps.filter((s: any) =>
-            s.description?.toLowerCase().includes('quality') ||
-            s.description?.toLowerCase().includes('measure') ||
-            s.description?.toLowerCase().includes('record') ||
-            s.description?.toLowerCase().includes('document') ||
-            s.step_number <= 3 || s.step_number >= steps.length - 1
-          ).slice(0, 2);
-
-          relevantSteps.forEach((step: any) => {
-            // Check if this change was already accepted
-            const changeKey = `${proc.procedure_id}:${step.step_id}:${changeType}`;
-            const isAlreadyImplemented = acceptedChangeKeys.has(changeKey);
-
-            changes.push({
-              stepId: step.step_id,
-              stepNumber: step.step_number,
-              currentText: step.description || `Step ${step.step_number}: ${step.step_name}`,
-              proposedText: `${step.description || step.step_name}\n\nADDED FOR ISO 9001:2024 COMPLIANCE:\n• Record quality metrics: dimensional accuracy, surface finish, alignment\n• Document any deviations from specifications with root cause\n• Capture process parameters and environmental conditions\n• Link quality data to traceability system`,
-              reason: 'ISO 9001:2024 Section 8.5.1 requires enhanced quality documentation and traceability throughout operational procedures.',
-              status: isAlreadyImplemented ? ('implemented' as const) : ('pending' as const)
-            });
-          });
+          // Mark changes as implemented if already accepted
+          proposedChanges = proposedChanges.map((procChanges: any) => ({
+            ...procChanges,
+            changes: procChanges.changes.map((change: any) => {
+              const changeKey = `${procChanges.procedureId}:${change.stepId}`;
+              return {
+                ...change,
+                status: acceptedChangeKeys.has(changeKey) ? 'implemented' : 'pending'
+              };
+            })
+          }));
         } else {
-          // ISO 14001 Environmental - focus on resource monitoring
-          const relevantSteps = steps.filter((s: any) =>
-            s.description?.toLowerCase().includes('start') ||
-            s.description?.toLowerCase().includes('setup') ||
-            s.description?.toLowerCase().includes('prepare') ||
-            s.step_number <= 2
-          ).slice(0, 2);
-
-          relevantSteps.forEach((step: any) => {
-            // Check if this change was already accepted
-            const changeKey = `${proc.procedure_id}:${step.step_id}:${changeType}`;
-            const isAlreadyImplemented = acceptedChangeKeys.has(changeKey);
-
-            changes.push({
-              stepId: step.step_id,
-              stepNumber: step.step_number,
-              currentText: step.description || `Step ${step.step_number}: ${step.step_name}`,
-              proposedText: `${step.description || step.step_name}\n\nADDED FOR ISO 14001:2024 COMPLIANCE:\n• Record baseline environmental metrics: energy consumption (kWh), water usage, materials\n• Document ambient conditions: temperature, humidity, air quality\n• Note any environmental hazards or special handling requirements\n• Enter data into environmental management system for carbon footprint tracking`,
-              reason: 'ISO 14001:2024 Section 8.1.1 requires documentation of environmental aspects and resource consumption metrics for all operational processes.',
-              status: isAlreadyImplemented ? ('implemented' as const) : ('pending' as const)
-            });
-          });
+          console.error('Failed to generate AI changes, using empty array');
+          proposedChanges = [];
         }
-
-        return {
-          procedureId: proc.procedure_id,
-          procedureName: proc.name,
-          changes
-        };
-      }).filter(p => p.changes.length > 0);
-
-      // Generate fallback document text if not provided
-      let documentText = regulationData.documentText;
-      if (!documentText && isOSHA) {
-        documentText = `OCCUPATIONAL SAFETY AND HEALTH ADMINISTRATION
-Standard 1910.147(c)(4) - The Control of Hazardous Energy (Lockout/Tagout)
-
-SECTION 1: GENERAL REQUIREMENTS
-This standard covers the servicing and maintenance of machines and equipment in which the unexpected energization or start-up of the machines or equipment, or release of stored energy, could harm employees.
-
-SECTION 2: ENERGY CONTROL PROCEDURE
-(c)(4) The employer shall develop, document, and utilize procedures for the control of potentially hazardous energy when employees are engaged in the activities covered by this section.
-
-NEW REQUIREMENTS (Effective June 1, 2024):
-(c)(4)(i) Procedures shall include a verification step to be performed by a second qualified person before equipment is returned to service.
-
-(c)(4)(ii) The verification must confirm that:
-  A. All energy isolating devices have been properly applied
-  B. All locks and tags are in place and properly affixed
-  C. All affected employees have been notified
-  D. All tools and materials have been removed from the work area
-  E. Equipment guards and safety devices have been reinstalled
-
-(c)(4)(iii) Documentation of the verification must be maintained for a minimum of 3 years.
-
-SECTION 3: COMPLIANCE TIMELINE
-All existing procedures must be updated and employees retrained by the effective date of June 1, 2024.
-
-SECTION 4: TRAINING REQUIREMENTS
-Additional training on the verification process must be provided to all authorized and affected employees.`;
-      } else if (!documentText && isISO14001) {
-        documentText = `INTERNATIONAL ORGANIZATION FOR STANDARDIZATION
-ISO 14001:2024 - Environmental Management Systems
-
-SECTION 1: SCOPE
-This document specifies requirements for an environmental management system that an organization can use to enhance its environmental performance.
-
-SECTION 2: OPERATIONAL PLANNING AND CONTROL (8.1)
-The organization shall establish, implement, control and maintain the processes needed to meet environmental management system requirements.
-
-NEW REQUIREMENTS (Effective August 15, 2024):
-(8.1.1) Enhanced Documentation Requirements
-Organizations must now document:
-  A. Environmental aspects of each operational process
-  B. Quantifiable environmental performance indicators
-  C. Resource consumption metrics (energy, water, materials)
-  D. Waste generation and disposal methods
-  E. Carbon footprint calculations where applicable
-
-(8.1.2) Monitoring and Measurement
-Procedures must include specific steps for:
-  A. Real-time monitoring of environmental indicators
-  B. Data collection at defined intervals
-  C. Validation of measurement accuracy
-  D. Regular reporting to management
-
-SECTION 3: IMPLEMENTATION TIMELINE
-All operational procedures must be updated to include these documentation steps by August 15, 2024.`;
-      } else if (!documentText) {
-        documentText = 'Full regulation document text not available.';
+      } catch (error) {
+        console.error('Error generating proposed changes:', error);
+        proposedChanges = [];
       }
+
+      // Use regulation document text or show message if not provided
+      const documentText = regulationData.documentText ||
+        'Document text not provided. The regulation summary and key changes are shown above.';
 
       const detailData: RegulationDetail = {
         id: regulationData.id,
@@ -423,20 +317,30 @@ All operational procedures must be updated to include these documentation steps 
         const allSteps = procData.steps || [];
 
         // Build modified steps array
-        const modifiedSteps = acceptedChanges.map(change => ({
-          stepId: change.stepId,
-          stepContent: change.proposedText,
-          stepName: allSteps.find((s: any) => s.step_id === change.stepId)?.step_name || `Step ${change.stepNumber}`,
-          description: change.proposedText,
-          criticality: allSteps.find((s: any) => s.step_id === change.stepId)?.criticality || 'medium',
-          typicalDurationMinutes: allSteps.find((s: any) => s.step_id === change.stepId)?.typical_duration_minutes,
-          verificationRequired: true, // Compliance changes require verification
-          changeType: 'modified' as const
-        }));
+        const modifiedSteps = acceptedChanges.map(change => {
+          // Find the actual step by step_number (more reliable than AI-generated step_id)
+          const actualStep = allSteps.find((s: any) => s.step_number === change.stepNumber);
+
+          if (!actualStep) {
+            console.warn(`Step ${change.stepNumber} not found in procedure ${procedure.procedureId}`);
+            return null;
+          }
+
+          return {
+            stepId: actualStep.step_id, // Use actual step_id from database
+            stepContent: change.proposedText,
+            stepName: actualStep.step_name,
+            description: change.proposedText,
+            criticality: actualStep.criticality || 'medium',
+            typicalDurationMinutes: actualStep.typical_duration_minutes,
+            verificationRequired: true, // Compliance changes require verification
+            changeType: 'modified' as const
+          };
+        }).filter(Boolean); // Remove any null entries
 
         // Include unchanged steps
         const unchangedSteps = allSteps
-          .filter((s: any) => !acceptedChanges.some(c => c.stepId === s.step_id))
+          .filter((s: any) => !acceptedChanges.some(c => c.stepNumber === s.step_number))
           .map((s: any) => ({
             stepId: s.step_id,
             changeType: 'unchanged' as const
@@ -469,10 +373,7 @@ All operational procedures must be updated to include these documentation steps 
                 procedureId: procedure.procedureId,
                 stepId: change.stepId,
                 changeDescription: change.reason,
-                changeType: regulation.source.toLowerCase().includes('osha') ? 'osha_compliance' :
-                            regulation.source.toLowerCase().includes('iso 9001') ? 'iso9001_compliance' :
-                            regulation.source.toLowerCase().includes('iso 14001') ? 'iso14001_compliance' :
-                            'general_compliance',
+                changeType: `${regulation.id}_compliance`, // Use regulation ID as change type for tracking
                 acceptedBy: 'MSO-001',
                 procedureVersion: newVersion
               })
@@ -530,7 +431,15 @@ All operational procedures must be updated to include these documentation steps 
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Regulation not found</p>
+          <p className="text-gray-600 font-medium mb-2">Regulation not found</p>
+          <p className="text-sm text-gray-500 mb-4">The regulation you're looking for doesn't exist or has been removed.</p>
+          <Link
+            href="/mso/knowledge-base"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#ff0000] to-[#cc0000] text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Knowledge Base
+          </Link>
         </div>
       </div>
     );

@@ -8,6 +8,16 @@ import { TourProvider } from "@/components/tour";
 export const metadata: Metadata = {
   title: "OptiSys - Management System Performance Intelligence",
   description: "Advanced analytics dashboard for operational excellence",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#1c2b40' },
+  ],
 };
 
 export default function RootLayout({

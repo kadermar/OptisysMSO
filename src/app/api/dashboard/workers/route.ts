@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
+// Enable caching for this route
+export const revalidate = 60; // Revalidate every 60 seconds
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -30,7 +33,11 @@ export async function GET(request: Request) {
       ORDER BY compliance_rate DESC
     `;
 
-    return NextResponse.json(result.rows);
+    return NextResponse.json(result.rows, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
+    });
   } catch (error) {
     console.error('Error fetching worker performance:', error);
     return NextResponse.json(

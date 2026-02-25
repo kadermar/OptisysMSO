@@ -18,10 +18,14 @@ export default function MSOProcedurePage({ params, searchParams }: {
   const [procedure, setProcedure] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'edit' | 'history' | 'add-steps'>('edit');
+  const [suggestedStepChanges, setSuggestedStepChanges] = useState<any[]>([]);
 
   useEffect(() => {
     fetchProcedure();
-  }, [resolvedParams.id]);
+    if (resolvedSearchParams.signal) {
+      fetchCachedRecommendations();
+    }
+  }, [resolvedParams.id, resolvedSearchParams.signal]);
 
   const fetchProcedure = async () => {
     try {
@@ -33,6 +37,20 @@ export default function MSOProcedurePage({ params, searchParams }: {
       console.error('Error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCachedRecommendations = async () => {
+    if (!resolvedSearchParams.signal) return;
+
+    try {
+      const response = await fetch(`/api/ci-signals/${encodeURIComponent(resolvedSearchParams.signal)}/recommendations`);
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestedStepChanges(data.suggestedStepChanges || []);
+      }
+    } catch (error) {
+      console.error('Error fetching cached recommendations:', error);
     }
   };
 
@@ -83,6 +101,7 @@ export default function MSOProcedurePage({ params, searchParams }: {
               procedureId={resolvedParams.id}
               ciSignalId={resolvedSearchParams.signal}
               initialRecommendation={resolvedSearchParams.recommendation}
+              suggestedStepChanges={suggestedStepChanges}
               onClose={handleClose}
               currentMode={viewMode}
               onModeChange={setViewMode}

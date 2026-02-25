@@ -16,9 +16,9 @@ export function TabletFrame({ children }: TabletFrameProps) {
         <div className="absolute inset-0 bg-black/20 blur-2xl transform translate-y-4"></div>
 
         {/* Tablet Body */}
-        <div className="relative bg-[#1c2b40] rounded-[2.5rem] p-4 shadow-2xl">
+        <div className="relative bg-[#1c2b40] rounded-[2rem] p-3 shadow-2xl">
           {/* Screen */}
-          <div className="bg-white rounded-[1.75rem] overflow-hidden shadow-inner" style={{ width: '768px', height: '1024px' }}>
+          <div className="bg-white rounded-[1.5rem] overflow-hidden shadow-inner" style={{ width: '576px', height: '768px' }}>
             {/* Status Bar */}
             <div className="bg-[#f8f9fa] border-b border-gray-200 px-6 py-2 flex items-center justify-between">
               <div className="flex items-center space-x-2">

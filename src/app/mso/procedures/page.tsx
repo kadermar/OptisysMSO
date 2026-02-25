@@ -241,6 +241,27 @@ function ProceduresContent() {
   const selectedProcedure = procedures.find(p => p.procedure_id === selectedProcedureId);
   const filteredWorkOrders = workOrders.filter(wo => wo.procedure_id === selectedProcedureId);
 
+  // Calculate real-time metrics from actual work orders
+  const totalWorkOrders = filteredWorkOrders.length;
+  // Use 'compliant' field (boolean) from database
+  const compliantWorkOrders = filteredWorkOrders.filter(wo => wo.compliant === true).length;
+
+  // Calculate incident metrics using 'safety_incident' field (boolean)
+  const incidentCount = filteredWorkOrders.filter(wo => wo.safety_incident === true).length;
+  const incidentRate = totalWorkOrders > 0 ? Math.round((incidentCount / totalWorkOrders) * 100) : 0;
+
+  // Calculate rework metrics using 'rework_required' field (boolean)
+  const reworkCount = filteredWorkOrders.filter(wo => wo.rework_required === true).length;
+  const reworkRate = totalWorkOrders > 0 ? Math.round((reworkCount / totalWorkOrders) * 100) : 0;
+
+  // Calculate average quality score (database uses 0-10 scale)
+  const qualityScores = filteredWorkOrders
+    .filter(wo => wo.quality_score != null && !isNaN(wo.quality_score))
+    .map(wo => Number(wo.quality_score));
+  const avgQualityScore = qualityScores.length > 0
+    ? qualityScores.reduce((sum, score) => sum + score, 0) / qualityScores.length
+    : null;
+
   if (!selectedProcedure) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-100">
@@ -437,8 +458,8 @@ function ProceduresContent() {
             {/* Compliance Rate */}
             <StatCard
               title="Compliance Rate"
-              value={`${selectedProcedure.compliance_rate}%`}
-              subtitle={`${selectedProcedure.compliant_count}/${selectedProcedure.total_work_orders} compliant`}
+              value={`${totalWorkOrders > 0 ? Math.round((compliantWorkOrders / totalWorkOrders) * 100) : 0}%`}
+              subtitle={`${compliantWorkOrders}/${totalWorkOrders} compliant`}
               gradient="bg-gradient-to-br from-green-50 to-green-100 border border-green-200"
               iconBg="bg-gradient-to-br from-green-500 to-green-600"
               textColor="text-green-700"
@@ -452,8 +473,8 @@ function ProceduresContent() {
             {/* Incident Rate */}
             <StatCard
               title="Incident Rate"
-              value={`${selectedProcedure.incident_rate}%`}
-              subtitle={`${selectedProcedure.incident_count} incidents`}
+              value={`${incidentRate}%`}
+              subtitle={`${incidentCount} incidents`}
               gradient="bg-gradient-to-br from-red-50 to-red-100 border border-red-200"
               iconBg="bg-gradient-to-br from-red-500 to-red-600"
               textColor="text-red-700"
@@ -467,8 +488,8 @@ function ProceduresContent() {
             {/* Quality Score */}
             <StatCard
               title="Avg Quality Score"
-              value={selectedProcedure.avg_quality_score ? Number(selectedProcedure.avg_quality_score).toFixed(1) : 'N/A'}
-              subtitle="out of 5.0"
+              value={avgQualityScore ? avgQualityScore.toFixed(1) : 'N/A'}
+              subtitle="out of 10.0"
               gradient="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200"
               iconBg="bg-gradient-to-br from-blue-500 to-blue-600"
               textColor="text-blue-700"
@@ -482,8 +503,8 @@ function ProceduresContent() {
             {/* Rework Rate */}
             <StatCard
               title="Rework Rate"
-              value={`${selectedProcedure.rework_rate}%`}
-              subtitle={`${selectedProcedure.rework_count} reworks`}
+              value={`${reworkRate}%`}
+              subtitle={`${reworkCount} reworks`}
               gradient="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200"
               iconBg="bg-gradient-to-br from-yellow-500 to-yellow-600"
               textColor="text-yellow-700"
@@ -504,7 +525,7 @@ function ProceduresContent() {
           >
             <SecondaryStat
               title="Total Work Orders"
-              value={selectedProcedure.total_work_orders}
+              value={filteredWorkOrders.length}
               icon={
                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

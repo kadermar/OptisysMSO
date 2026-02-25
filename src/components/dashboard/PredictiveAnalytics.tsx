@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Target, AlertOctagon, AlertTriangle, AlertCircle, CheckCircle, HelpCircle, BarChart3, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 interface PredictiveData {
@@ -61,11 +62,11 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
 
   const getRiskIcon = (category: string) => {
     switch (category) {
-      case 'Critical': return '🔴';
-      case 'High': return '🟠';
-      case 'Medium': return '🟡';
-      case 'Low': return '🟢';
-      default: return '⚪';
+      case 'Critical': return <AlertOctagon className="w-3 h-3" />;
+      case 'High': return <AlertTriangle className="w-3 h-3" />;
+      case 'Medium': return <AlertCircle className="w-3 h-3" />;
+      case 'Low': return <CheckCircle className="w-3 h-3" />;
+      default: return <HelpCircle className="w-3 h-3" />;
     }
   };
 
@@ -81,8 +82,8 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
       <div className="bg-white rounded-xl shadow-2xl p-8 border-l-4 border-[#1c2b40]">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-[#1c2b40] flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#ff0000] rounded-full flex items-center justify-center text-white text-xl shadow-lg">
-              📊
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+              <Target className="w-6 h-6" />
             </div>
             Predictive Analytics & Risk Scoring
           </h2>
@@ -100,8 +101,8 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1c2b40] flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#ff0000] rounded-full flex items-center justify-center text-white text-xl shadow-lg">
-              📊
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+              <Target className="w-6 h-6" />
             </div>
             Predictive Analytics & Risk Scoring
           </h2>
@@ -127,8 +128,8 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-3">
                 <h3 className="text-lg font-bold text-[#1c2b40] flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-[#ff0000] to-[#cc0000] rounded-lg flex items-center justify-center text-white shadow-lg">
-                    📊
+                  <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-rose-600 rounded-lg flex items-center justify-center text-white shadow-lg">
+                    <BarChart3 className="w-5 h-5" />
                   </div>
                   Risk Distribution by Procedure
                 </h3>
@@ -196,7 +197,7 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
                       tick={{ fill: '#1c2b40', fontWeight: 600, fontSize: 12 }}
                       axisLine={{ stroke: '#9ca3af', strokeWidth: 2 }}
                       tickLine={{ stroke: '#9ca3af' }}
-                      label={{ value: 'Risk Score (0-100)', angle: -90, position: 'center', fill: '#1c2b40', fontWeight: 'bold', fontSize: 13, dx: -15 }}
+                      label={{ value: 'Risk Score (%)', angle: -90, position: 'center', fill: '#1c2b40', fontWeight: 'bold', fontSize: 13, dx: -15 }}
                       domain={[0, 100]}
                     />
                     <Tooltip
@@ -214,7 +215,7 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
                                 <div className="flex items-center justify-between gap-4">
                                   <span className="text-sm text-gray-600 font-semibold">Risk Score:</span>
                                   <span className="text-base font-bold" style={{ color: colors.bar }}>
-                                    {data.risk_score}/100
+                                    {data.risk_score}%
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between gap-4">
@@ -297,7 +298,7 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
                             {getRiskIcon(item.risk_category)} {item.risk_category}
                           </span>
                           <div className="text-lg font-bold" style={{ color: colors.bar }}>
-                            {item.risk_score}
+                            {item.risk_score}%
                           </div>
                         </div>
 
@@ -334,12 +335,14 @@ export function PredictiveAnalytics({ dateRange }: PredictiveAnalyticsProps) {
           {/* Risk Methodology */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border-l-4 border-[#1c2b40] shadow-lg">
             <h4 className="text-base font-bold text-[#1c2b40] mb-3 flex items-center gap-2">
-              <span className="text-lg">ℹ️</span>
+              <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md">
+                <Info className="w-4 h-4" />
+              </div>
               Risk Score Methodology
             </h4>
             <p className="text-sm text-gray-700 leading-relaxed font-medium">
               Risk scores are calculated using a weighted algorithm: <span className="text-[#ff0000] font-bold">40% compliance rate</span>, <span className="text-[#ff0000] font-bold">30% incident rate</span>,
-              <span className="text-[#ff0000] font-bold"> 20% quality scores</span>, and <span className="text-[#ff0000] font-bold">10% rework frequency</span>. Scores range from 0-100, with higher scores indicating greater risk.
+              <span className="text-[#ff0000] font-bold"> 20% quality scores</span>, and <span className="text-[#ff0000] font-bold">10% rework frequency</span>. Scores range from 0-100%, with higher percentages indicating greater risk.
             </p>
           </div>
         </>

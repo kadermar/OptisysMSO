@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Shield, Wrench, Activity, CheckCircle } from 'lucide-react';
 
 interface WorkOrder {
   wo_id: string;
@@ -72,6 +73,16 @@ export function DrilldownCards({ workOrders, selectedProcedureId, onClearFilter 
       Integrity: 'bg-teal-100 text-teal-800 border-teal-300',
     };
     return colors[category] || 'bg-gray-100 text-gray-800 border-gray-300';
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'Safety': return <Shield className="w-3 h-3" />;
+      case 'Maintenance': return <Wrench className="w-3 h-3" />;
+      case 'Operations': return <Activity className="w-3 h-3" />;
+      case 'Integrity': return <CheckCircle className="w-3 h-3" />;
+      default: return <Activity className="w-3 h-3" />;
+    }
   };
 
   // Get the selected procedure name if applicable
@@ -156,7 +167,8 @@ export function DrilldownCards({ workOrders, selectedProcedureId, onClearFilter 
                 <span className="text-xs font-mono text-gray-500">{wo.wo_id}</span>
                 <h3 className="font-semibold text-sm mt-1 text-[#1c2b40]">{wo.procedure_name}</h3>
               </div>
-              <span className={`text-xs px-2 py-1 rounded-full border ${getCategoryColor(wo.procedure_category)}`}>
+              <span className={`text-xs px-2 py-1 rounded-md border inline-flex items-center gap-1 font-bold ${getCategoryColor(wo.procedure_category)}`}>
+                {getCategoryIcon(wo.procedure_category)}
                 {wo.procedure_category}
               </span>
             </div>

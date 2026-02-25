@@ -115,7 +115,7 @@ export function AIProfitInsights({ data }: AIProfitInsightsProps) {
       // Generate AI headline
       const headlineResponse = await fetch('/api/ai/assistant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_API_KEY || '' },
         body: JSON.stringify({
           message: `Based on this compliance data, provide a single, impactful headline insight (max 30 words):
           - Total profit impact from non-compliance: ${formatCurrency(data.breakdown.totalProfitImpact)}

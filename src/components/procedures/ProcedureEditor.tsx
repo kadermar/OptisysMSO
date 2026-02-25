@@ -10,6 +10,7 @@ interface ProcedureEditorProps {
   procedureId: string;
   ciSignalId?: string;
   initialRecommendation?: string;
+  suggestedStepChanges?: any[];
   onClose: () => void;
   currentMode: 'edit' | 'history' | 'add-steps';
   onModeChange: (mode: 'edit' | 'history' | 'add-steps') => void;
@@ -19,6 +20,7 @@ export default function ProcedureEditor({
   procedureId,
   ciSignalId,
   initialRecommendation,
+  suggestedStepChanges = [],
   onClose,
   currentMode,
   onModeChange
@@ -35,6 +37,45 @@ export default function ProcedureEditor({
   useEffect(() => {
     fetchProcedureData();
   }, [procedureId, ciSignalId]);
+
+  // Prepopulate edited steps with suggested changes when available
+  useEffect(() => {
+    console.log('🔍 Prepopulation check:', {
+      hasSuggestions: !!suggestedStepChanges,
+      suggestionsLength: suggestedStepChanges?.length,
+      stepsLength: steps.length,
+      suggestions: suggestedStepChanges
+    });
+
+    if (suggestedStepChanges && suggestedStepChanges.length > 0 && steps.length > 0) {
+      const newEdited = new Map<string, any>();
+
+      suggestedStepChanges.forEach((suggestion: any) => {
+        // Match by step number since AI returns "Step 5" instead of actual step_id
+        const stepNumber = suggestion.stepNumber || parseInt(suggestion.stepId?.replace(/\D/g, '') || '0');
+        const step = steps.find(s => s.step_number === stepNumber);
+
+        console.log('🔍 Matching step:', {
+          suggestionStepId: suggestion.stepId,
+          stepNumber,
+          foundStep: !!step,
+          actualStepId: step?.step_id
+        });
+
+        if (step) {
+          const content = suggestion.suggestedContent || suggestion.proposedContent;
+          console.log('✅ Prepopulating step:', step.step_id, step.step_name, 'with content:', content?.substring(0, 100));
+          newEdited.set(step.step_id, {
+            ...step,
+            description: content
+          });
+        }
+      });
+
+      console.log('📝 Setting edited steps:', newEdited.size, 'steps');
+      setEditedSteps(newEdited);
+    }
+  }, [suggestedStepChanges, steps]);
 
   const fetchProcedureData = async () => {
     try {
@@ -160,7 +201,7 @@ export default function ProcedureEditor({
     );
   }
 
-  const currentVersion = procedure?.version || procedure?.current_version || '1.0';
+  const currentVersion = procedure?.current_version || procedure?.version || '1.0';
   const versionParts = currentVersion.split('.');
   const newVersion = `${versionParts[0]}.${parseInt(versionParts[1] || '0') + 1}`;
   const hasChanges = editedSteps.size > 0;
@@ -317,7 +358,7 @@ export default function ProcedureEditor({
           {steps.map((step, index) => (
             <EditableStep
               key={step.step_id}
-              step={step}
+              step={editedSteps.get(step.step_id) || step}
               index={index}
               isEdited={editedSteps.has(step.step_id)}
               currentVersion={currentVersion}
