@@ -396,7 +396,7 @@ export default function MSOSignalsPage() {
                                 {key.replace('_', ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                               </div>
                               <div className="text-2xl font-bold text-blue-700">
-                                {typeof value === 'number' ? value : value}
+                                {typeof value === 'number' ? value : String(value)}
                                 {key.includes('rate') ? '%' : ''}
                               </div>
                             </div>

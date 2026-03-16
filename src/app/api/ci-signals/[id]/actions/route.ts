@@ -60,7 +60,7 @@ async function handleAcceptAction(
     }
 
     // Get current procedure and steps
-    const procedure = await db.getProcedureWithSteps(signal.procedure_id);
+    const procedure = await db.getProcedureWithSteps(signal.procedure_id) as any;
 
     if (!procedure) {
       return NextResponse.json(

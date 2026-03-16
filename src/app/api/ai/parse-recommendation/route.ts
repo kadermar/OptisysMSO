@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     let procedureContext = '';
     let procedureSteps: any[] = [];
     try {
-      const procedure = await db.getProcedureWithSteps(procedureId);
+      const procedure = await db.getProcedureWithSteps(procedureId) as any;
       if (procedure) {
         procedureSteps = procedure.steps || [];
         procedureContext = `
