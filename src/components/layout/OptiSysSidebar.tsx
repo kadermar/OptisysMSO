@@ -115,14 +115,14 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
     },
   ];
 
-  const links = isMSOMode ? msoLinks : originalLinks;
+  const links = msoLinks; // originalLinks commented out — MSO experience only
   const [open, setOpen] = useState(false);
 
-  const handleStartTour = () => {
-    if (tour) {
-      tour.startTour();
-    }
-  };
+  // const handleStartTour = () => {
+  //   if (tour) {
+  //     tour.startTour();
+  //   }
+  // };
 
   return (
     <div className="flex flex-col md:flex-row bg-gray-50 w-full flex-1 h-screen overflow-hidden">
@@ -135,7 +135,7 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
                 <SidebarLink key={idx} link={link} />
               ))}
             </div>
-            {/* Start Tour Button - Only show in original experience, not MSO */}
+            {/* Start Tour Button - commented out (original experience only)
             {!isMSOMode && (
               <div className="mt-4 pt-4 border-t border-white/10">
                 <button
@@ -159,6 +159,7 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
             )}
+            */}
           </div>
           <div className="flex flex-col gap-2">
             <SidebarLink
@@ -174,12 +175,12 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
         </SidebarBody>
       </Sidebar>
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* MSO Top Nav - Only show in MSO mode */}
-        {isMSOMode && <MSOTopNav />}
+        {/* MSO Top Nav - always shown */}
+        <MSOTopNav />
 
         <main className={cn(
           "flex-1 overflow-auto transition-[padding] duration-300",
-          tour?.isActive && !isMSOMode && "pb-44"
+          // tour?.isActive && !isMSOMode && "pb-44"
         )}>
           {children}
         </main>
@@ -192,7 +193,7 @@ export function OptiSysSidebar({ children }: { children: React.ReactNode }) {
 export const Logo = () => {
   return (
     <Link
-      href="/"
+      href="/mso"
       className="font-normal flex space-x-2 items-center text-sm py-1 relative z-20"
     >
       <div className="h-5 w-6 bg-[#ff0000] rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
@@ -210,7 +211,7 @@ export const Logo = () => {
 export const LogoIcon = () => {
   return (
     <Link
-      href="/"
+      href="/mso"
       className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20"
     >
       <div className="h-5 w-6 bg-[#ff0000] rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />

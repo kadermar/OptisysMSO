@@ -12,7 +12,8 @@ export async function POST(request: Request) {
 
     if (procedureId) {
       // Cleanup specific procedure
-      return await cleanupProcedure(procedureId);
+      const result = await cleanupProcedure(procedureId);
+      return NextResponse.json(result);
     } else {
       // Cleanup all procedures
       const procedures = await sql`
